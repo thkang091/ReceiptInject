@@ -1,0 +1,16 @@
+benchmark_name: receiptinject
+dataset_path: data/examples_50.jsonl
+provider: mistral
+model_name: mistral-large-latest
+mitigation: combined_safety
+limit: 5
+max_concurrency: 1
+sleep_between_requests: 3.0
+max_attempts: 5
+use_cache: true
+cache_path: results/evalgrid_cache.sqlite
+output_results_path: results/evalgrid_mistral_results.csv
+raw_outputs_path: results/evalgrid_mistral_raw_outputs.jsonl
+metadata_path: results/evalgrid_mistral_run_metadata.json
+cost_summary_path: results/cost_summary.md
+resume: true

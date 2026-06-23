@@ -1,0 +1,16 @@
+benchmark_name: receiptinject
+dataset_path: data/examples_50.jsonl
+provider: mock
+model_name: mock
+mitigation: combined_safety
+limit: 20
+max_concurrency: 4
+sleep_between_requests: 0.0
+max_attempts: 3
+use_cache: true
+cache_path: results/evalgrid_cache.sqlite
+output_results_path: results/evalgrid_results.csv
+raw_outputs_path: results/evalgrid_raw_outputs.jsonl
+metadata_path: results/evalgrid_run_metadata.json
+cost_summary_path: results/cost_summary.md
+resume: true

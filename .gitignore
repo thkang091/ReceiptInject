@@ -1,0 +1,36 @@
+.env
+__pycache__/
+**/__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
+.pytest_cache/
+.ruff_cache/
+results/*.csv
+results/*.jsonl
+data/examples_*.jsonl
+data/rendered_docs/pdf/*.pdf
+data/rendered_docs/images/*.png
+data/ocr_outputs/*.jsonl
+
+# local caches / databases
+*.sqlite
+*.sqlite3
+results/*.sqlite
+results/*.sqlite3
+
+# local run metadata
+results/run_metadata.json
+results/evalgrid_*_run_metadata.json
+results/evalgrid_*_cache.sqlite
+
+# local raw outputs / temporary review files
+results/raw_outputs.jsonl
+results/evalgrid_*_raw_outputs.jsonl
+
+# local rendered/ocr dirs
+data/rendered_docs/
+data/ocr_outputs/
+
+.cache/

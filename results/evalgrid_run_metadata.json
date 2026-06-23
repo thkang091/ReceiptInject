@@ -1,0 +1,14 @@
+{
+  "benchmark_name": "receiptinject",
+  "completed_at": "2026-06-22T18:43:50.728429Z",
+  "completed_tasks": 0,
+  "config_path": "configs/evalgrid_receiptinject_mock.yaml",
+  "dataset_path": "data/examples_50.jsonl",
+  "estimated_cost": 0.0,
+  "failed_tasks": 0,
+  "model_name": "mock",
+  "model_provider": "mock",
+  "run_id": "evalgrid-receiptinject-mock-combined_safety-20260622T184350Z",
+  "started_at": "2026-06-22T18:43:50.726902Z",
+  "total_tasks": 20
+}

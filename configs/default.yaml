@@ -1,0 +1,21 @@
+experiment_name: default
+seed: 7
+dataset:
+  count: 1000
+  document_types:
+    - retail_receipt
+    - restaurant_receipt
+    - travel_receipt
+rendering:
+  output_pdf_dir: data/rendered_docs/pdf
+  output_image_dir: data/rendered_docs/images
+ocr:
+  provider: mistral
+  model: ${MISTRAL_MODEL}
+models:
+  - provider: mock
+    name: mock_safe
+limits:
+  max_api_cost_usd: 25.0
+  max_documents: null
+resume: true

@@ -1,0 +1,10 @@
+dataset_path: data/ocr_outputs/ocr_results.jsonl
+model: mistral
+mitigation: combined_safety
+input_mode: ocr
+limit: 10
+sleep: 1.0
+output_path: results/ocr_mistral_results.csv
+raw_output_path: results/ocr_mistral_raw_outputs.jsonl
+resume: true
+seed: 42

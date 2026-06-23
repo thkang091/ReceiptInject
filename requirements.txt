@@ -1,0 +1,12 @@
+pydantic
+pandas
+python-dotenv
+tqdm
+pyyaml
+mistralai
+openai
+reportlab
+pillow
+matplotlib
+pytest
+ruff

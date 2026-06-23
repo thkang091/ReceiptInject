@@ -1,0 +1,10 @@
+dataset_path: data/examples_500.jsonl
+model: mistral
+mitigation: combined_safety
+input_mode: text
+limit: 25
+sleep: 1.0
+output_path: results/cheap_mistral_results.csv
+raw_output_path: results/cheap_mistral_raw_outputs.jsonl
+resume: true
+seed: 42

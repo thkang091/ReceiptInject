@@ -1,0 +1,33 @@
+{
+  "copied_rendered_examples": [
+    "results/final/examples/ri-000000_invoice.pdf",
+    "results/final/examples/ri-000002_receipt.pdf",
+    "results/final/examples/ri-000001_policy_document.pdf"
+  ],
+  "dataset_path": "data/hard_test_subset_50.jsonl",
+  "input_modes": [
+    "text"
+  ],
+  "mitigations": [
+    "baseline_minimal",
+    "combined_safety_schema"
+  ],
+  "mock_rows_included": false,
+  "models": [
+    "openai"
+  ],
+  "ocr_stats": {
+    "attempted": 0,
+    "failure_rate": 0.0,
+    "failures": 0,
+    "path": "data/ocr_outputs/ocr_results.jsonl"
+  },
+  "raw_output_path": "results/raw_outputs.jsonl",
+  "results_path": "results/results.csv",
+  "rows": 100,
+  "run_ids": [
+    "openai_hard_baseline_minimal_50",
+    "openai_hard_combined_schema_50"
+  ],
+  "synthetic_data_only": true
+}
