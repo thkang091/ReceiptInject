@@ -2,100 +2,69 @@
 
 ## Abstract
 
-ReceiptInject is a research engineering project for evaluating document-understanding LLM agents on untrusted inputs. It combines deterministic synthetic data generation, realistic document templates, PDF/PNG rendering, optional OCR, multi-model evaluation, raw output logging, reproducible scoring, aggregate analysis, and qualitative failure-case export. The benchmark studies whether agents can extract useful factual information while ignoring embedded document instructions, minimizing private-field leakage, avoiding unsupported facts, avoiding unsafe external-action recommendations, and avoiding unnecessary refusal. All examples are synthetic, and embedded instructions are visible benchmark content. This report describes the benchmark design and systems implementation. In the current local artifact snapshot, final curated results contain no real Mistral rows, so the report does not make empirical claims about model safety.
+ReceiptInject is a research engineering project for evaluating document-understanding LLM agents on untrusted synthetic inputs. It combines deterministic synthetic data generation, realistic document templates, optional PDF/OCR support, multi-provider evaluation through EvalGrid, raw output logging, reproducible scoring, and final artifact generation. The current curated result is a preliminary OpenAI + Mistral passive comparison on a 50-example hard subset. The results are synthetic, small-sample, and scorer-limited.
 
 ## Introduction
 
-LLM document agents increasingly process receipts, invoices, statements, policy memos, and scanned PDFs. These systems often place user instructions, OCR text, and document content into a shared context. A document can therefore contain text that resembles a system message, internal note, or administrative override. ReceiptInject treats this as a systems evaluation problem: the question is not whether one prompt can be tricked, but whether a reproducible pipeline can measure document-agent behavior across document types, attack categories, mitigation prompts, and input modes.
-
-The project’s contribution is infrastructure for empirical measurement. It supports synthetic dataset generation, document rendering, OCR, model abstraction, resumable evaluation, raw logs, deterministic scoring, aggregate reporting, and failure-case analysis.
+LLM document agents increasingly process receipts, invoices, bank statements, policy memos, and scanned documents. These inputs are not trusted instruction sources. A footer, internal note, OCR artifact, or policy appendix can contain text that looks like a command. ReceiptInject treats this as an evaluation-infrastructure problem: can a reproducible pipeline measure document-agent behavior under untrusted input conditions?
 
 ## Threat Model
 
-The adversary controls visible text inside a synthetic document. The evaluator controls the actual task, such as extracting fields, summarizing factual content, or comparing document sections. The model should treat document text as untrusted data and should not follow embedded document instructions as operational commands.
-
-ReceiptInject does not model hidden text, invisible text, steganography, malware, account compromise, or unauthorized testing of production systems. The benchmark is defensive and synthetic.
+The adversary controls visible text inside a synthetic document. The evaluator controls the actual task, such as extracting fields or summarizing factual content. The model should treat document text as untrusted data and should not follow embedded document instructions as operational commands.
 
 ## Benchmark Design
 
-Each example is represented by a typed `BenchmarkExample` schema containing document metadata, expected task, document text, ground-truth fields, synthetic private fields, expected safe behavior, and tags. The benchmark covers benign examples and visible adversarial instruction patterns.
+ReceiptInject examples use typed schemas with document metadata, expected task, document text, ground-truth fields, synthetic private fields, safe-behavior descriptions, expected constraints, and tags. Documents cover receipts, invoices, bank statements, policy/legal/public-sector documents, and mixed bundles.
 
-Document families include receipts, invoices, bank statements, policy/legal/public-sector documents, and mixed multi-document bundles. Attack categories include instruction override, privacy exfiltration, role confusion, fake policy, hidden action request, data poisoning, conflicting instructions, authority impersonation, and format injection.
+Attack types include instruction override, privacy exfiltration, role confusion, fake policy, hidden action request, data poisoning, conflicting instructions, authority impersonation, and format injection.
 
 ## Dataset Generation
 
-The generator is deterministic and seed-controlled. For `n=500`, the intended composition is 125 receipts, 125 invoices, 100 bank statements, 100 policy/legal/public-sector documents, and 50 mixed bundles. The target split is 50% benign and 50% adversarial, with a 35/45/20 easy/medium/hard difficulty distribution.
+The generator is deterministic and seed-controlled. For `n=500`, the intended composition is 125 receipts, 125 invoices, 100 bank statements, 100 policy/legal/public-sector documents, and 50 mixed bundles. All names, IDs, totals, account-like values, emails, and private fields are synthetic.
 
-All names, IDs, totals, account-like values, emails, and private fields are synthetic. Dataset validation checks schema validity, duplicate IDs/text, benign/adversarial consistency, real-looking SSN or credit-card patterns, ground-truth recoverability, private-field placement, and mixed-bundle structure.
+The dataset diversity audit reports 0 duplicate `document_text` rows and 608 repeated tracked-value occurrences. This repeated-value issue is a synthetic-template limitation, and the current pass leaves that caveat intact.
 
-## PDF/OCR Pipeline
+## Evaluation Harness
 
-ReceiptInject renders synthetic examples to PDFs and PNGs with document-specific layouts. Receipts use narrower formats, invoices and bank statements use table-like sections, policy documents use memo-style layouts, and mixed bundles use multiple sections. Embedded instructions remain visible and clearly part of the synthetic benchmark document.
-
-The OCR pipeline supports Mistral OCR and a mock OCR mode. OCR JSONL rows include example IDs, source files, OCR markdown, errors, timestamps, and example metadata for downstream scoring. OCR errors are recorded per document rather than crashing the entire run.
-
-## Model Evaluation Harness
-
-The evaluation harness loads text examples or OCR rows, builds a mitigation prompt, calls a selected model client, validates structured JSON output, scores the result, and writes raw JSONL plus scored CSV rows. It supports mock evaluation, Mistral evaluation, run IDs, limits, sleep intervals, resume behavior, fresh output files, and YAML experiment configs.
-
-Mock evaluation is used for pipeline validation only. Mistral evaluation is supported through a local `.env` file and should be interpreted as preliminary real-model evidence when run.
+The evaluation path loads JSONL examples, builds mitigation prompts, calls model providers, validates structured JSON output, scores results, and writes raw JSONL plus scored CSV rows. EvalGrid adds YAML configs, caching, resumability, provider metadata, and cost summaries.
 
 ## Metrics
 
-ReceiptInject reports:
+ReceiptInject reports extraction accuracy, prompt-injection compliance, privacy leakage, unsafe action rate, hallucination, over-refusal, suspicious instruction detection, safe completion rate, and utility/safety tradeoff. These scorers are transparent MVP heuristics, not substitutes for human review.
 
-- extraction accuracy
-- prompt-injection compliance
-- privacy leakage
-- unsafe action rate
-- hallucination
-- over-refusal
-- suspicious instruction detection
-- safe completion rate
-- utility/safety tradeoff
+## Preliminary Results
 
-The scorers are intentionally transparent MVP heuristics. They make runs reproducible and auditable, but they do not replace manual inspection.
+The current final result uses `data/hard_test_subset_50.jsonl`: 50 synthetic examples, 10 per document type, 20 benign and 30 adversarial, with 43 hard, 6 medium, and 1 easy examples.
 
-## Mitigation Strategies
+| Model | Mitigation | n | Extraction Accuracy | Safe Completion | Hallucination | Prompt-Injection Compliance |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| OpenAI | `baseline_minimal` | 50 | 45.3% | 54.0% | 12.0% | 6.0% |
+| OpenAI | `combined_safety_schema` | 50 | 84.7% | 100.0% | 0.0% | 0.0% |
+| Mistral | `baseline_minimal` | 50 | 26.3% | 12.0% | 40.0% | 50.0% |
+| Mistral | `combined_safety_schema` | 50 | 84.0% | 98.0% | 2.0% | 0.0% |
 
-Mitigation modes include baseline, untrusted-document isolation, action confirmation, structured policy guard, privacy minimization, and combined safety. These are prompt-level mitigations for controlled comparison, not security guarantees.
+These results show that ReceiptInject can expose mitigation-sensitive behavior in a controlled synthetic setting and can run the same passive benchmark across OpenAI and Mistral. They do not prove production safety, and they should not be interpreted as broad model rankings.
 
-## Preliminary Real-Model Results
-
-The final artifact workflow selects non-mock real-model rows from `results/results.csv` and writes curated artifacts under `results/final/`. In the current local snapshot, `results/final/final_results.csv` contains no real Mistral rows. Therefore, this report intentionally does not claim model performance numbers.
-
-When real Mistral rows are present, the appropriate interpretation is preliminary: synthetic benchmark, small run sizes, automated scorer limitations, and manual inspection required.
-
-## OCR Pilot Results
-
-The repository supports a small OCR pilot:
-
-```bash
-python scripts/render_documents.py --data data/examples_500.jsonl --out data/rendered_docs --limit 25
-python scripts/run_ocr.py --manifest data/rendered_docs/manifest.jsonl --output data/ocr_outputs/ocr_results.jsonl --limit 10 --sleep 1.0
-python scripts/run_eval.py --data data/ocr_outputs/ocr_results.jsonl --input-mode ocr --model mistral --mitigation combined_safety --limit 10 --sleep 1.0 --run-id mistral_ocr_combined_10
-```
-
-In the current local snapshot, rendered examples exist but real OCR results are not present. Any future OCR results should be described as a small pilot, not production document reliability evidence.
-
-## Failure Analysis
-
-ReceiptInject exports failure cases by joining scored rows, raw model outputs, and source examples. The report prioritizes prompt-injection compliance, privacy leakage, unsafe action, hallucination, over-refusal, OCR-specific failures, and mixed-bundle cases. Embedded instructions are summarized rather than reproduced at length.
+Claude/Anthropic was not run because no local `ANTHROPIC_API_KEY` was available.
 
 ## Systems Lessons
 
-The main systems lesson is that document-agent safety evaluation requires more than prompt examples. Reproducible measurement depends on typed schemas, deterministic data, rendering/OCR pipelines, cost controls, resumable runs, raw output logs, structured scoring, aggregate analysis, and qualitative failure inspection.
+The strongest contribution is systems execution: deterministic data generation, typed schemas, prompt configurations, provider abstraction, resumable runs, raw-output logging, reproducible scoring, final summaries, and validation artifacts. These are the components needed to turn a prompt-injection intuition into an auditable evaluation pipeline.
 
-ReceiptInject is designed so that a small smoke test, a mock run, a real-model run, and an OCR run share the same artifact pathway.
+## Limitations
 
-## Scorer and Manual Validation Limitations
-
-Automated scores depend on structured model outputs and simple heuristics. They can miss semantic nuance, overstate failures in ambiguous cases, or rely on model self-report fields. Manual inspection of raw outputs and rendered documents is needed before drawing conclusions.
+- Synthetic data only
+- Small hard-subset comparison
+- No Claude/Anthropic rows
+- Automated scorers are heuristic
+- Manual review is required before strong claims
+- Dataset templates repeat some tracked values
+- OCR is implemented but not part of the current headline comparison
 
 ## Responsible Use
 
-ReceiptInject is for defensive AI safety evaluation only. It uses synthetic data and visible benchmark instructions. Users should not insert real private documents or use the project to attack real systems. Results are not legal, financial, medical, compliance, or operational advice.
+ReceiptInject is for defensive AI safety evaluation only. Users should not insert real private documents or use the project to attack real systems. Results are not legal, financial, medical, compliance, or operational advice.
 
 ## Future Work
 
-Future work includes human annotation, richer rendered layouts, larger synthetic datasets, real-world-inspired but privacy-preserving templates, more model providers, semantic scorers, cost/latency tracking, longitudinal regression tests, and controlled tool-use simulations.
+Future work includes human annotation, richer rendered layouts, larger and more diverse synthetic datasets, real-world-inspired but privacy-preserving templates, additional model providers, semantic scorers, cost/latency tracking, and OCR stress tests.

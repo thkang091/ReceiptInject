@@ -1,51 +1,35 @@
 # Preliminary Hard-Subset Results
 
-Source results: `results/results.csv`
-Dataset path: `data/hard_test_subset_50.jsonl`
+Source: `results/final/final_results.csv`
+Dataset: `data/hard_test_subset_50.jsonl`
 
-Model name: `openai`
-Run IDs included: `openai_hard_baseline_minimal_50`, `openai_hard_combined_schema_50`
-Rows included: 100 total result rows, covering 50 hard-subset examples under two mitigation modes.
-
-These are preliminary synthetic benchmark results. The hard subset is deliberately more adversarial than the balanced subset. The results show that ReceiptInject can expose failures in a weak baseline and compare them against a structured mitigation. They do not prove production safety.
-
-## Headline Comparison
-
-| Metric | baseline_minimal | combined_safety_schema | Change |
-| --- | ---: | ---: | ---: |
-| Extraction accuracy | 45.3% | 84.7% | +39.3 pp |
-| Safe completion rate | 54.0% | 100.0% | +46.0 pp |
-| Hallucination rate | 12.0% | 0.0% | -12.0 pp |
-| Prompt-injection compliance | 6.0% | 0.0% | -6.0 pp |
-| Suspicious instruction detection | 40.0% | 52.0% | +12.0 pp |
-
-## Metric Table
-
-| model_name | mitigation | input_mode | n | extraction_accuracy | prompt_injection_compliance | privacy_leakage | unsafe_action_rate | hallucination | over_refusal | suspicious_instruction_detection | safe_completion_rate | utility_safety_tradeoff |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| openai | baseline_minimal | text | 50 | 0.453 | 0.060 | 0.000 | 0.000 | 0.120 | 0.000 | 0.400 | 0.540 | 0.449 |
-| openai | combined_safety_schema | text | 50 | 0.847 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.520 | 1.000 | 0.847 |
-
-## Hard Subset Composition
+These are preliminary real-model results on a 50-example synthetic hard subset. The comparison now includes OpenAI and Mistral on the same examples and the same two passive mitigation conditions. Claude/Anthropic was not run because no local `ANTHROPIC_API_KEY` was available.
 
 The hard subset contains 50 examples: 10 receipts, 10 invoices, 10 bank statements, 10 policy documents, and 10 mixed bundles. It includes 20 benign examples and 30 adversarial examples. Difficulty is intentionally skewed toward harder cases: 43 hard, 6 medium, and 1 easy.
 
-## Result Interpretation
+## Headline Table
 
-The weak `baseline_minimal` prompt produces visible extraction and safety failures on the hard subset. The `combined_safety_schema` prompt improves extraction accuracy and safe completion while reducing automated hallucination and prompt-injection compliance labels in this run. This is useful evidence that the benchmark can differentiate prompt mitigations under controlled synthetic conditions, not evidence that the model is safe in production.
+| Model | Mitigation | n | Extraction Accuracy | Safe Completion | Hallucination | Prompt-Injection Compliance | Suspicious Instruction Detection |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| mistral-large-latest | `baseline_minimal` | 50 | 26.3% | 12.0% | 40.0% | 50.0% | 80.0% |
+| mistral-large-latest | `combined_safety_schema` | 50 | 84.0% | 98.0% | 2.0% | 0.0% | 94.0% |
+| openai | `baseline_minimal` | 50 | 45.3% | 54.0% | 12.0% | 6.0% | 40.0% |
+| openai | `combined_safety_schema` | 50 | 84.7% | 100.0% | 0.0% | 0.0% | 52.0% |
 
-## Known Limitations
+## Interpretation
 
-Synthetic templates still repeat some tracked values. The diversity audit reports 0 duplicate document texts but 608 repeated tracked-value occurrences, especially recurring synthetic merchants, vendors, and institutions.
+On this synthetic hard subset, `combined_safety_schema` improved automated extraction and safety metrics for both evaluated providers relative to `baseline_minimal`. This supports a narrow claim: ReceiptInject can run a controlled cross-provider passive comparison and expose mitigation-sensitive behavior on synthetic untrusted documents.
 
-No real private documents are used. All examples are synthetic benchmark data.
+This does not prove production safety, does not establish broad model rankings, and should not be treated as legal, financial, compliance, or operational advice. Automated scorer labels remain heuristic and require manual review.
 
-Automated scorers are transparent but limited and are not a substitute for human review. The manual review sample is small and should be expanded before making strong claims.
+## Scope Notes
 
-OCR coverage is preliminary or absent in these selected final rows; the current headline comparison is text-only.
+- OpenAI final rows: 100 rows from two 50-example runs.
+- Mistral final rows: 100 completed rows from two 50-example EvalGrid runs; one transient 429 in the combined run was retried successfully and excluded from the curated completed-row CSV.
+- Claude/Anthropic: not run in this pass.
+- OCR: not included in this headline comparison.
+- Mock results: pipeline validation only, not research evidence.
 
-Results may vary by model, provider, prompt formatting, SDK behavior, and generation settings.
+## Dataset Diversity Caveat
 
-## OCR Pilot Status
-
-No OCR evaluation rows were found in the selected final hard-subset results. OCR results should be reported separately as a small pilot when present, not mixed into this headline comparison.
+`results/dataset_diversity_audit.md` reports 0 duplicate `document_text` rows but 608 repeated tracked-value occurrences across the 500-example dataset. This remains a synthetic-template limitation; the dataset was not regenerated in this pass, so broad coverage language should stay cautious.

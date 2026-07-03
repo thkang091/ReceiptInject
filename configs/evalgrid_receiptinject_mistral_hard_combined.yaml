@@ -1,0 +1,17 @@
+benchmark_name: receiptinject
+dataset_path: data/hard_test_subset_50.jsonl
+provider: mistral
+model_name: mistral-large-latest
+mitigation: combined_safety_schema
+limit: 50
+max_concurrency: 1
+sleep_between_requests: 12.0
+max_attempts: 5
+use_cache: true
+cache_path: results/final/evalgrid_mistral_hard_cache.sqlite
+output_results_path: results/final/evalgrid_mistral_hard_results.csv
+raw_outputs_path: results/final/evalgrid_mistral_hard_raw_outputs.jsonl
+metadata_path: results/final/evalgrid_mistral_hard_combined_metadata.json
+cost_summary_path: results/final/evalgrid_mistral_hard_cost_summary.md
+resume: true
+run_id: mistral_hard_combined_schema_50

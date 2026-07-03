@@ -1,0 +1,16 @@
+{
+  "benchmark_name": "receiptinject",
+  "cache_hits": 0,
+  "completed_at": "2026-07-03T06:25:43.230644Z",
+  "completed_tasks": 50,
+  "config_path": "configs/evalgrid_receiptinject_mistral_hard_baseline.yaml",
+  "dataset_path": "data/hard_test_subset_50.jsonl",
+  "estimated_cost": 0.088156,
+  "failed_tasks": 0,
+  "model_name": "mistral-large-latest",
+  "model_provider": "mistral",
+  "run_id": "mistral_hard_baseline_minimal_50",
+  "skipped_tasks": 0,
+  "started_at": "2026-07-03T06:12:53.434457Z",
+  "total_tasks": 50
+}

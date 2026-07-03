@@ -1,33 +1,29 @@
 {
-  "copied_rendered_examples": [
-    "results/final/examples/ri-000000_invoice.pdf",
-    "results/final/examples/ri-000002_receipt.pdf",
-    "results/final/examples/ri-000001_policy_document.pdf"
-  ],
+  "anthropic_claude": "not run; ANTHROPIC_API_KEY was not present in the local environment",
+  "created_at": "2026-07-03T06:40:31.353894+00:00",
+  "dataset_diversity_caveat": "results/dataset_diversity_audit.md reports 608 repeated tracked-value occurrences across the 500-example dataset; this limitation remains documented and datasets were not regenerated in this pass.",
   "dataset_path": "data/hard_test_subset_50.jsonl",
-  "input_modes": [
-    "text"
-  ],
-  "mitigations": [
-    "baseline_minimal",
-    "combined_safety_schema"
-  ],
-  "mock_rows_included": false,
-  "models": [
+  "included_models": [
+    "mistral-large-latest",
     "openai"
   ],
-  "ocr_stats": {
-    "attempted": 0,
-    "failure_rate": 0.0,
-    "failures": 0,
-    "path": "data/ocr_outputs/ocr_results.jsonl"
-  },
-  "raw_output_path": "results/raw_outputs.jsonl",
-  "results_path": "results/results.csv",
-  "rows": 100,
-  "run_ids": [
+  "included_rows": 200,
+  "included_runs": [
+    "mistral_hard_baseline_minimal_50",
+    "mistral_hard_combined_schema_50",
     "openai_hard_baseline_minimal_50",
     "openai_hard_combined_schema_50"
   ],
-  "synthetic_data_only": true
+  "mistral_evalgrid_artifacts": {
+    "aggregate_completed_rows_by_run": {
+      "mistral_hard_baseline_minimal_50": 50,
+      "mistral_hard_combined_schema_50": 50
+    },
+    "aggregate_failed_rows_by_run_after_retry": {},
+    "baseline_metadata": "results/final/evalgrid_mistral_hard_baseline_metadata.json",
+    "combined_resume_metadata": "results/final/evalgrid_mistral_hard_combined_metadata.json",
+    "raw_outputs_jsonl": "results/final/evalgrid_mistral_hard_raw_outputs.jsonl",
+    "results_csv": "results/final/evalgrid_mistral_hard_results.csv"
+  },
+  "scope": "passive hard-subset real-model comparison"
 }

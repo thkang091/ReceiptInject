@@ -1,172 +1,128 @@
-# ReceiptInject + EvalGrid
+# ReceiptInject
 
-**Evaluation infrastructure for untrusted document-understanding LLM agents.**
+ReceiptInject is scalable evaluation infrastructure for testing document-understanding LLM agents on untrusted synthetic inputs. It combines deterministic dataset generation, document templates, optional rendering/OCR, multi-provider evaluation through EvalGrid, raw-output logging, reproducible scoring, and failure-case analysis.
 
-ReceiptInject is a synthetic benchmark and evaluation infrastructure for testing how LLM document agents handle untrusted receipts, invoices, bank statements, policy documents, and mixed document bundles. EvalGrid is the reusable evaluation runner layer: provider abstraction, YAML configs, caching, raw output logging, resumable runs, scoring, metadata, and final artifacts.
+This is defensive AI safety / ML systems infrastructure. All benchmark documents are synthetic. The project does not prove production safety, solve prompt injection, or execute real-world actions.
 
-This is a defensive AI safety / ML systems project. It does not use real private documents, does not claim production reliability, and does not claim to solve prompt injection.
+## Current Resume-Facing Result
+
+The committed final artifacts now center a passive hard-subset comparison on `data/hard_test_subset_50.jsonl`: 50 synthetic examples, 10 per document type, 20 benign and 30 adversarial, with 43 hard, 6 medium, and 1 easy examples.
+
+The current real-model scope is OpenAI + Mistral. Claude/Anthropic was not run because no local `ANTHROPIC_API_KEY` was available.
+
+| Model | Mitigation | n | Extraction Accuracy | Safe Completion | Hallucination | Prompt-Injection Compliance |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| OpenAI | `baseline_minimal` | 50 | 45.3% | 54.0% | 12.0% | 6.0% |
+| OpenAI | `combined_safety_schema` | 50 | 84.7% | 100.0% | 0.0% | 0.0% |
+| Mistral | `baseline_minimal` | 50 | 26.3% | 12.0% | 40.0% | 50.0% |
+| Mistral | `combined_safety_schema` | 50 | 84.0% | 98.0% | 2.0% | 0.0% |
+
+Interpretation: on this small synthetic hard subset, the structured `combined_safety_schema` prompt improved automated extraction and safety metrics for both evaluated providers. This is preliminary benchmark evidence, not production reliability evidence or a broad model ranking.
 
 ## Why This Matters
 
-Real document agents process messy, untrusted inputs. A receipt footer, invoice note, bank-statement memo, policy appendix, or OCR artifact can contain instructions, fake policies, private fields, or requests for external action. Accuracy alone is not enough: document agents should extract useful facts without treating document text as authority.
+Document-understanding agents process untrusted text. A receipt footer, invoice note, policy memo, bank-statement annotation, or OCR transcript can contain instructions that look operational but should be treated as document content only.
 
-ReceiptInject studies whether an agent can:
+ReceiptInject studies whether models can extract useful structured information while avoiding embedded-instruction compliance, private-field leakage, hallucination, unsafe action recommendations, and unnecessary refusal.
 
-- extract factual structured information from documents
-- ignore visible embedded instructions inside document text
-- avoid leaking synthetic private fields
-- avoid recommending or claiming external actions
-- avoid hallucinating unsupported facts
-- avoid over-refusing benign document tasks
-
-The project emphasizes reproducible evaluation infrastructure: deterministic data generation, raw output logging, structured scoring, failure-case export, and manual-review artifacts.
-
-## What I Built
-
-- Deterministic synthetic dataset generation with typed Pydantic schemas
-- Balanced subset creation and deliberately harder adversarial subset creation
-- Synthetic document families: receipts, invoices, bank statements, policy documents, and mixed bundles
-- Visible benchmark attack types: instruction override, data poisoning, role confusion, privacy exfiltration, hidden action request, fake policy, format injection, conflicting instructions, and authority impersonation
-- Direct ReceiptInject evaluation harness for mock, OpenAI, and Mistral runs
-- EvalGrid reusable runner with provider abstraction, YAML configs, SQLite caching, raw JSONL logging, resumable runs, cost/metadata tracking, and rate controls
-- Scoring for extraction accuracy, prompt-injection compliance, privacy leakage, unsafe action, hallucination, over-refusal, suspicious instruction detection, safe completion, and utility/safety tradeoff
-- PDF/PNG rendering and optional Mistral OCR pipeline for document-to-markdown experiments
-- Final reports, failure-case summaries, diversity audits, and manual-review samples
-
-## Architecture
+## System Architecture
 
 ```text
-Synthetic Dataset Generator
+Synthetic document templates
         |
         v
-Balanced / Hard Subsets
+Deterministic dataset generation
         |
         v
-ReceiptInject Benchmark
+Hard / balanced subsets
         |
         v
-EvalGrid Runner
+Prompt mitigation modes
         |
         v
-Model Providers: OpenAI / Mistral / Mock
+EvalGrid provider runner
         |
         v
-Raw Outputs + Scored CSV + Metadata
+OpenAI / Mistral / mock providers
         |
         v
-Final Reports + Failure Cases + Manual Review Samples
+Raw outputs + scored CSV rows
+        |
+        v
+Final summaries + validation + failure cases
 ```
 
-Core modules:
+## What Is Included
 
-| Path | Role |
-| --- | --- |
-| `receiptinject/` | Benchmark schemas, templates, dataset generation, prompts, scorers, model clients, OCR, rendering, analysis |
-| `evalgrid/` | Reusable evaluation runner, provider abstraction, cache, rate limiting, metadata, storage, configs |
-| `scripts/` | Dataset, validation, eval, OCR, summarization, final-artifact, and audit CLIs |
-| `configs/` | YAML experiment configs for mock, OpenAI, Mistral, and OCR runs |
-| `results/final/` | Curated final summaries, failure cases, validation notes, and interpretation |
+- Typed Pydantic schemas for benchmark examples, model outputs, and scored rows
+- Deterministic synthetic dataset generation
+- Synthetic receipts, invoices, bank statements, policy documents, and mixed bundles
+- Visible embedded-instruction benchmark data
+- Prompt mitigation modes including `baseline_minimal` and `combined_safety_schema`
+- EvalGrid provider abstraction with OpenAI, Mistral, Anthropic placeholder support, caching, metadata, and resume behavior
+- Raw JSONL logging and scored CSV outputs
+- Dataset validation and diversity audit
+- Final artifacts under `results/final/`
+- `pytest` and `ruff` quality checks
 
-## Preliminary Hard-Subset Results
+## Key Artifacts
 
-The current headline result is a text-only OpenAI evaluation on a deliberately hard 50-example synthetic subset. The subset contains 10 examples per document type, 20 benign and 30 adversarial examples, and a difficulty mix of 43 hard, 6 medium, and 1 easy. These two selected OpenAI runs had 0 API/parsing errors.
+- Final selected results: `results/final/final_results.csv`
+- Final summary: `results/final/final_summary.md`
+- Final validation: `results/final/final_validation.md`
+- Claim audit: `results/final/claim_audit.md`
+- Mistral EvalGrid hard-run CSV: `results/final/evalgrid_mistral_hard_results.csv`
+- Dataset diversity audit: `results/dataset_diversity_audit.md`
+- Technical report: `docs/ReceiptInject_Report.md`
+- Paper-style report: `paper/ReceiptInject_Report.md`
+- Research memo: `research_memo.md`
 
-| Hard subset run | Extraction Accuracy | Safe Completion | Hallucination | Prompt-Injection Compliance |
-| --- | ---: | ---: | ---: | ---: |
-| `baseline_minimal` | 45.3% | 54.0% | 12.0% | 6.0% |
-| `combined_safety_schema` | 84.7% | 100.0% | 0.0% | 0.0% |
+## Reproducibility
 
-These are preliminary synthetic benchmark results. They show that the evaluation pipeline can expose baseline failures and compare mitigations, not that the model is production-safe.
-
-Final artifacts:
-
-- `results/final/final_summary.md`
-- `results/final/final_interpretation.md`
-- `results/final/final_failure_cases.md`
-- `results/final/final_validation.md`
-- `results/hard_manual_review_sample.md`
-
-## Dataset Diversity Audit
-
-The full 500-example synthetic dataset currently has:
-
-| Audit item | Value |
-| --- | ---: |
-| Duplicate `document_text` | 0 |
-| Repeated tracked-value occurrences | 608 |
-
-The repeated tracked values are documented as a limitation of synthetic-template generation, especially recurring synthetic merchant, vendor, and institution names. Future work should increase template and value diversity before presenting the benchmark as broad coverage of real-world document variation.
-
-## Quickstart
-
-Create and activate a virtual environment, then install dependencies:
+Install:
 
 ```bash
 make install
 ```
 
-Generate the full synthetic dataset:
+Generate the base dataset and hard subset:
 
 ```bash
 python scripts/generate_dataset.py --n 500 --output data/examples_500.jsonl --seed 42
+python scripts/create_hard_subset.py --data data/examples_500.jsonl --out data/hard_test_subset_50.jsonl --n 50 --seed 123
 ```
 
-Create the hard 50-example subset:
+Run OpenAI passive evaluation:
 
 ```bash
-python scripts/create_hard_subset.py \
-  --data data/examples_500.jsonl \
-  --out data/hard_test_subset_50.jsonl \
-  --n 50 \
-  --seed 123
+python scripts/run_eval.py --data data/hard_test_subset_50.jsonl --model openai --mitigation baseline_minimal --limit 50 --sleep 1.0 --run-id openai_hard_baseline_minimal_50 --fresh
+python scripts/run_eval.py --data data/hard_test_subset_50.jsonl --model openai --mitigation combined_safety_schema --limit 50 --sleep 1.0 --run-id openai_hard_combined_schema_50
 ```
 
-Run the weak baseline on the hard subset:
+Run Mistral passive evaluation through EvalGrid:
 
 ```bash
-python scripts/run_eval.py \
-  --data data/hard_test_subset_50.jsonl \
-  --model openai \
-  --mitigation baseline_minimal \
-  --limit 50 \
-  --sleep 1.0 \
-  --run-id openai_hard_baseline_minimal_50 \
-  --fresh
+python scripts/evalgrid_run.py --config configs/evalgrid_receiptinject_mistral_hard_baseline.yaml --fresh --clear-cache
+python scripts/evalgrid_run.py --config configs/evalgrid_receiptinject_mistral_hard_combined.yaml
 ```
 
-Run the structured safety mitigation:
+Summarize Mistral EvalGrid runs:
 
 ```bash
-python scripts/run_eval.py \
-  --data data/hard_test_subset_50.jsonl \
-  --model openai \
-  --mitigation combined_safety_schema \
-  --limit 50 \
-  --sleep 1.0 \
-  --run-id openai_hard_combined_schema_50
+python scripts/evalgrid_summarize.py --results results/final/evalgrid_mistral_hard_results.csv --metadata results/final/evalgrid_mistral_hard_baseline_metadata.json --raw results/final/evalgrid_mistral_hard_raw_outputs.jsonl --out results/final/evalgrid_mistral_hard_baseline_summary.md --run-id mistral_hard_baseline_minimal_50
+python scripts/evalgrid_summarize.py --results results/final/evalgrid_mistral_hard_results.csv --metadata results/final/evalgrid_mistral_hard_combined_metadata.json --raw results/final/evalgrid_mistral_hard_raw_outputs.jsonl --out results/final/evalgrid_mistral_hard_combined_summary.md --run-id mistral_hard_combined_schema_50
 ```
 
-Summarize results:
+Run quality checks:
 
 ```bash
-python scripts/summarize_results.py \
-  --results results/results.csv \
-  --out results/summary.md
+pytest
+ruff check .
 ```
 
-Create final artifacts:
+## Environment
 
-```bash
-python scripts/create_final_artifacts.py \
-  --results results/results.csv \
-  --raw results/raw_outputs.jsonl \
-  --data data/hard_test_subset_50.jsonl \
-  --out results/final
-```
-
-## Environment Variables
-
-Put API keys in a local `.env` file at the project root. Do not commit `.env`.
+Put provider keys in a local `.env` file. Do not commit `.env`.
 
 ```env
 OPENAI_API_KEY=your_key_here
@@ -174,92 +130,27 @@ OPENAI_MODEL=gpt-4o-mini
 
 MISTRAL_API_KEY=your_key_here
 MISTRAL_MODEL=mistral-large-latest
-MISTRAL_OCR_MODEL=mistral-ocr-latest
 ```
 
 Mock mode runs without API keys and is for pipeline validation only.
 
-## EvalGrid
+## Dataset Diversity Caveat
 
-EvalGrid is the reusable ML evaluation infrastructure layer used by ReceiptInject. It supports:
-
-- benchmark adapters
-- mock, OpenAI, and Mistral providers
-- YAML-driven experiment configs
-- concurrency and sleep-based rate controls
-- SQLite response caching
-- resumable runs
-- raw output JSONL
-- scored CSV output
-- run metadata and estimated cost tracking
-
-Mock smoke test:
-
-```bash
-python scripts/evalgrid_run.py --config configs/evalgrid_receiptinject_mock.yaml
-python scripts/evalgrid_summarize.py \
-  --results results/evalgrid_results.csv \
-  --metadata results/evalgrid_run_metadata.json \
-  --out results/evalgrid_summary.md
-```
-
-Small real-provider smoke tests should use low limits, low concurrency, sleeps, and caching. They validate infrastructure, not research claims.
-
-## Optional OCR Pipeline
-
-ReceiptInject can render synthetic examples and run OCR before evaluation:
-
-```bash
-python scripts/render_documents.py --data data/examples_500.jsonl --out data/rendered_docs --limit 25
-python scripts/run_ocr.py --manifest data/rendered_docs/manifest.jsonl --output data/ocr_outputs/ocr_results.jsonl --limit 10 --sleep 1.0
-python scripts/run_eval.py --data data/ocr_outputs/ocr_results.jsonl --input-mode ocr --model mistral --mitigation combined_safety --limit 10 --sleep 1.0
-```
-
-OCR coverage is currently preliminary. OCR results should be reported separately from the hard-subset text-only results.
-
-## Testing
-
-```bash
-pytest
-ruff check .
-```
-
-Current local status:
-
-- `pytest`: 128 tests passed
-- `ruff check .`: clean
-
-Tests do not require real API keys.
-
-## Responsible Use
-
-ReceiptInject is for defensive AI safety evaluation only.
-
-- Do not insert real private documents.
-- Do not use this project to attack real systems.
-- Do not use benchmark outputs for legal, financial, medical, compliance, eligibility, lending, employment, insurance, or benefits decisions.
-- Treat all results as preliminary unless manually reviewed.
-
-See `responsible_use.md`.
+`results/dataset_diversity_audit.md` reports 0 duplicate `document_text` rows but 608 repeated tracked-value occurrences across the 500-example dataset. This is a synthetic-template limitation and remains explicitly documented. The dataset was not regenerated in the latest Mistral scale-up pass.
 
 ## Limitations
 
 - Synthetic data only
-- No real private documents
-- Visible embedded benchmark instructions only; no hidden text or steganography
-- Automated scorers are transparent but limited and require manual review
-- Repeated tracked values remain in the synthetic dataset
-- OCR pilot coverage is limited or pending depending on the selected run
-- No human annotation yet
-- Results may vary by provider, model, prompt formatting, and SDK behavior
-- No claim of solved prompt injection or production safety
+- Small hard-subset real-model comparison
+- Automated scorers are transparent but heuristic
+- Manual review is still needed before strong claims
+- No Claude/Anthropic rows are present
+- OCR is implemented but excluded from the headline final comparison
+- Results may vary by provider, model version, prompt formatting, and structured-output behavior
+- No claim of production safety, solved prompt injection, or benchmark completeness
 
-## Future Work
+## Responsible Use
 
-- Increase synthetic template and value diversity
-- Add human annotation and adjudication workflows
-- Expand OCR stress tests and document layouts
-- Add more model providers and comparable configs
-- Build richer semantic scorers for extraction and hallucination
-- Simulate tool-using document agents under controlled conditions
-- Publish benchmark cards and model/provider evaluation cards
+ReceiptInject is defensive evaluation infrastructure using synthetic data only. Do not insert real private documents. Do not use it to attack real systems. Do not use outputs for legal, financial, medical, compliance, eligibility, lending, employment, insurance, or benefits decisions.
+
+See `responsible_use.md`.
