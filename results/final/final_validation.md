@@ -39,7 +39,7 @@ The transient failed 429 row is not included in the curated completed-row final 
 | Mock rows excluded from final evidence | PASS |
 | OCR rows excluded from headline comparison | PASS |
 | Dataset diversity caveat retained | PASS |
-| `pytest` | PASS: 148 passed |
+| `pytest` | PASS: 128 passed |
 | `ruff check .` | PASS |
 
 ## Dataset Diversity Caveat
