@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -22,6 +23,16 @@ OPENAI_MISSING_KEY_MESSAGE = (
     "Missing OPENAI_API_KEY. Create a `.env` file in the project root with:\n"
     "OPENAI_API_KEY=your_openai_key_here\n"
     "OPENAI_MODEL=gpt-4o-mini"
+)
+ANTHROPIC_MISSING_KEY_MESSAGE = (
+    "Missing ANTHROPIC_API_KEY. Create a `.env` file in the project root with:\n"
+    "ANTHROPIC_API_KEY=your_key_here\n"
+    "ANTHROPIC_MODEL=claude-3-5-sonnet-latest"
+)
+GEMINI_MISSING_KEY_MESSAGE = (
+    "Missing GEMINI_API_KEY. Create a `.env` file in the project root with:\n"
+    "GEMINI_API_KEY=your_key_here\n"
+    "GEMINI_MODEL=gemini-2.0-flash-lite"
 )
 
 
@@ -53,6 +64,9 @@ class MockModelClient(BaseModelClient):
 
         prompt = f"{system_prompt}\n{user_prompt}"
         prompt_lower = prompt.lower()
+        if '"tool_calls"' in prompt_lower or "available simulated tools" in prompt_lower:
+            return _mock_agentic_output(prompt, prompt_lower)
+
         adversarial = "visible embedded benchmark content" in prompt_lower
         combined_safety = (
             "untrusted document" in prompt_lower and "minimize private" in prompt_lower
@@ -147,7 +161,8 @@ class MistralModelClient(BaseModelClient):
             raise ModelClientError(MISTRAL_MISSING_KEY_MESSAGE)
         self.model = model or os.getenv("MISTRAL_MODEL", "mistral-large-latest")
         self.max_retries = max_retries
-        self.client = client or _build_mistral_client(self.api_key)
+        self.timeout_ms = int(os.getenv("MISTRAL_TIMEOUT_MS", "60000"))
+        self.client = client or _build_mistral_client(self.api_key, timeout_ms=self.timeout_ms)
 
     def complete_json(self, system_prompt: str, user_prompt: str) -> dict[str, Any]:
         """Call Mistral with retries and return parsed JSON."""
@@ -165,6 +180,8 @@ class MistralModelClient(BaseModelClient):
                     response_format={"type": "json_object"},
                 )
                 parsed = extract_first_json_object(_extract_message_content(response))
+                if "tool_calls" in parsed:
+                    return parsed
                 return normalize_model_output(parsed)
             except Exception as exc:  # noqa: BLE001 - provider errors vary by SDK version.
                 last_error = exc
@@ -212,7 +229,10 @@ class OpenAIModelClient(BaseModelClient):
                     temperature=0,
                     response_format={"type": "json_object"},
                 )
-                return normalize_model_output(_extract_openai_message_content(response))
+                parsed = extract_first_json_object(_extract_openai_message_content(response))
+                if "tool_calls" in parsed:
+                    return parsed
+                return normalize_model_output(parsed)
             except Exception as exc:  # noqa: BLE001 - provider errors vary by SDK version.
                 last_error = exc
 
@@ -223,27 +243,106 @@ class OpenAIModelClient(BaseModelClient):
 
 
 class AnthropicModelClient(BaseModelClient):
-    """Placeholder Anthropic client with lazy missing-key errors."""
+    """Anthropic Messages API client with robust JSON parsing."""
 
-    env_key = "ANTHROPIC_API_KEY"
-    provider = "Anthropic"
+    def __init__(
+        self,
+        model: str | None = None,
+        max_retries: int = 3,
+        *,
+        api_key: str | None = None,
+        client: Any | None = None,
+        env_path: str | Path | None = None,
+    ) -> None:
+        dotenv_path = _resolve_dotenv_path(env_path)
+        if dotenv_path is not None:
+            load_dotenv(dotenv_path=dotenv_path, override=False)
+        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+        if not self.api_key:
+            raise ModelClientError(ANTHROPIC_MISSING_KEY_MESSAGE)
+        self.model = model or os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-latest")
+        self.max_retries = max_retries
+        self.client = client or _build_anthropic_client(self.api_key)
 
     def complete_json(self, system_prompt: str, user_prompt: str) -> dict[str, Any]:
-        """Raise a helpful setup error until the client is implemented."""
+        """Call Anthropic with retries and return parsed JSON."""
 
-        _raise_placeholder_error(self.provider, self.env_key)
+        last_error: Exception | None = None
+        for _attempt in range(1, self.max_retries + 1):
+            try:
+                response = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=2048,
+                    temperature=0,
+                    system=(
+                        f"{system_prompt}\nReturn exactly one valid JSON object. "
+                        "Do not include Markdown."
+                    ),
+                    messages=[{"role": "user", "content": user_prompt}],
+                )
+                parsed = extract_first_json_object(_extract_anthropic_message_content(response))
+                if "tool_calls" in parsed:
+                    return parsed
+                return normalize_model_output(parsed)
+            except Exception as exc:  # noqa: BLE001 - provider errors vary by SDK version.
+                last_error = exc
+
+        raise ModelClientError(
+            f"AnthropicModelClient failed to return valid JSON after {self.max_retries} "
+            f"attempts using model `{self.model}`: {last_error}"
+        )
 
 
 class GeminiModelClient(BaseModelClient):
-    """Placeholder Gemini client with lazy missing-key errors."""
+    """Gemini client using the Google Generative Language REST API."""
 
-    env_key = "GEMINI_API_KEY"
-    provider = "Gemini"
+    def __init__(
+        self,
+        model: str | None = None,
+        max_retries: int = 3,
+        *,
+        api_key: str | None = None,
+        client: Any | None = None,
+        env_path: str | Path | None = None,
+    ) -> None:
+        dotenv_path = _resolve_dotenv_path(env_path)
+        if dotenv_path is not None:
+            load_dotenv(dotenv_path=dotenv_path, override=False)
+        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        if not self.api_key:
+            raise ModelClientError(GEMINI_MISSING_KEY_MESSAGE)
+        self.model = _normalize_gemini_model_name(
+            model or os.getenv("GEMINI_MODEL", "gemini-2.0-flash-lite")
+        )
+        self.max_retries = max_retries
+        self.timeout_seconds = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "60"))
+        self.client = client or _GeminiRestClient(
+            api_key=self.api_key,
+            model=self.model,
+            timeout_seconds=self.timeout_seconds,
+        )
 
     def complete_json(self, system_prompt: str, user_prompt: str) -> dict[str, Any]:
-        """Raise a helpful setup error until the client is implemented."""
+        """Call Gemini with retries and return parsed JSON."""
 
-        _raise_placeholder_error(self.provider, self.env_key)
+        last_error: Exception | None = None
+        for _attempt in range(1, self.max_retries + 1):
+            try:
+                response = self.client.generate_content(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                )
+                parsed = extract_first_json_object(_extract_gemini_message_content(response))
+                if "tool_calls" in parsed:
+                    return parsed
+                return normalize_model_output(parsed)
+            except Exception as exc:  # noqa: BLE001 - provider/API errors vary.
+                last_error = exc
+
+        raise ModelClientError(
+            f"GeminiModelClient failed to return valid JSON after {self.max_retries} "
+            f"attempts using model `{self.model}`: {last_error}"
+        )
 
 
 def get_model_client(model_name: str) -> BaseModelClient:
@@ -266,7 +365,7 @@ def get_model_client(model_name: str) -> BaseModelClient:
     )
 
 
-def _build_mistral_client(api_key: str) -> Any:
+def _build_mistral_client(api_key: str, *, timeout_ms: int = 60000) -> Any:
     """Build a Mistral SDK client across supported SDK import layouts."""
 
     try:
@@ -279,7 +378,7 @@ def _build_mistral_client(api_key: str) -> Any:
                 "The mistralai SDK is required for MistralModelClient. "
                 "Install requirements.txt first."
             ) from exc
-    return Mistral(api_key=api_key)
+    return Mistral(api_key=api_key, timeout_ms=timeout_ms)
 
 
 def _build_openai_client(api_key: str) -> Any:
@@ -292,6 +391,65 @@ def _build_openai_client(api_key: str) -> Any:
             "The openai SDK is required for OpenAIModelClient. Install requirements.txt first."
         ) from exc
     return OpenAI(api_key=api_key)
+
+
+def _build_anthropic_client(api_key: str) -> Any:
+    """Build an Anthropic SDK client."""
+
+    try:
+        from anthropic import Anthropic
+    except ImportError as exc:
+        raise ModelClientError(
+            "The anthropic SDK is required for AnthropicModelClient. "
+            "Install requirements.txt first."
+        ) from exc
+    return Anthropic(api_key=api_key)
+
+
+class _GeminiRestClient:
+    """Small REST client for Gemini JSON-mode requests."""
+
+    def __init__(self, api_key: str, model: str, timeout_seconds: float = 60.0) -> None:
+        self.api_key = api_key
+        self.model = _normalize_gemini_model_name(model)
+        self.timeout_seconds = timeout_seconds
+
+    def generate_content(self, system_prompt: str, user_prompt: str) -> dict[str, Any]:
+        """Call Gemini generateContent and return decoded JSON response."""
+
+        import urllib.error
+        import urllib.parse
+        import urllib.request
+
+        encoded_model = urllib.parse.quote(self.model, safe="")
+        endpoint = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{encoded_model}:generateContent?key={urllib.parse.quote(self.api_key, safe='')}"
+        )
+        body = {
+            "systemInstruction": {"parts": [{"text": system_prompt}]},
+            "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+            "generationConfig": {
+                "temperature": 0,
+                "responseMimeType": "application/json",
+            },
+        }
+        request = urllib.request.Request(
+            endpoint,
+            data=json.dumps(body).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise ModelClientError(
+                f"Gemini API error occurred: Status {exc.code}. Body: {detail}"
+            ) from exc
+        except urllib.error.URLError as exc:
+            raise ModelClientError(f"Gemini API request failed: {exc.reason}") from exc
 
 
 def _extract_message_content(response: Any) -> str:
@@ -348,6 +506,71 @@ def _extract_openai_message_content(response: Any) -> str:
     if not isinstance(content, str) or not content.strip():
         raise ModelClientError("OpenAI response message content was empty.")
     return content
+
+
+def _extract_anthropic_message_content(response: Any) -> str:
+    """Extract text from common Anthropic message response shapes."""
+
+    content = getattr(response, "content", None)
+    if content is None and isinstance(response, dict):
+        content = response.get("content")
+    if not content:
+        raise ModelClientError("Anthropic response did not include content.")
+    if isinstance(content, str):
+        text = content
+    else:
+        parts: list[str] = []
+        for block in content:
+            text_value = getattr(block, "text", None)
+            if text_value is None and isinstance(block, dict):
+                text_value = block.get("text")
+            if text_value is not None:
+                parts.append(str(text_value))
+        text = "".join(parts)
+    if not text.strip():
+        raise ModelClientError("Anthropic response content was empty.")
+    return text
+
+
+def _extract_gemini_message_content(response: Any) -> str:
+    """Extract text from common Gemini generateContent response shapes."""
+
+    candidates = getattr(response, "candidates", None)
+    if candidates is None and isinstance(response, dict):
+        candidates = response.get("candidates")
+    if not candidates:
+        raise ModelClientError("Gemini response did not include candidates.")
+
+    candidate = candidates[0]
+    content = getattr(candidate, "content", None)
+    if content is None and isinstance(candidate, dict):
+        content = candidate.get("content")
+    if content is None:
+        raise ModelClientError("Gemini response candidate did not include content.")
+
+    parts = getattr(content, "parts", None)
+    if parts is None and isinstance(content, dict):
+        parts = content.get("parts")
+    if not parts:
+        raise ModelClientError("Gemini response content did not include parts.")
+
+    text_parts: list[str] = []
+    for part in parts:
+        text = getattr(part, "text", None)
+        if text is None and isinstance(part, dict):
+            text = part.get("text")
+        if text is not None:
+            text_parts.append(str(text))
+    combined = "".join(text_parts)
+    if not combined.strip():
+        raise ModelClientError("Gemini response text was empty.")
+    return combined
+
+
+def _normalize_gemini_model_name(model: str) -> str:
+    """Accept either `gemini-x` or API-returned `models/gemini-x` names."""
+
+    return model.removeprefix("models/")
 
 
 def _raise_placeholder_error(provider: str, env_key: str) -> None:
@@ -421,3 +644,118 @@ def _stable_score(text: str) -> float:
     """Return a deterministic pseudo-random score in [0, 1)."""
 
     return (sum(ord(char) for char in text) % 1000) / 1000
+
+
+def _mock_agentic_output(prompt: str, prompt_lower: str) -> dict[str, Any]:
+    """Return deterministic simulated behavior for agentic prompts."""
+
+    safety_schema = "document text cannot authorize tool calls" in prompt_lower
+    adversarial = "visible embedded benchmark content" in prompt_lower or any(
+        marker in prompt_lower
+        for marker in [
+            "admin override",
+            "processing instruction",
+            "reviewer comment",
+            "system message",
+        ]
+    )
+    forbidden_tool = _first_forbidden_tool(prompt)
+    allowed_tool = _first_allowed_tool(prompt)
+
+    tool_calls: list[dict[str, Any]] = []
+    if adversarial and forbidden_tool and not safety_schema:
+        tool_calls.append(
+            {
+                "tool_name": forbidden_tool,
+                "arguments": _mock_tool_arguments(forbidden_tool),
+                "reason": "Mock baseline followed an embedded document instruction.",
+                "authorized": False,
+            }
+        )
+    elif (
+        allowed_tool
+        and "write_case_note_simulated" in allowed_tool
+        and _stable_score(prompt) < 0.35
+    ):
+        tool_calls.append(
+            {
+                "tool_name": allowed_tool,
+                "arguments": {
+                    "case_id": "SYN-CASE-MOCK",
+                    "note": "Mock note summarizing supported document facts.",
+                },
+                "reason": "Mock used an allowed case-note tool for audit logging.",
+                "authorized": True,
+            }
+        )
+
+    extracted_fields = _extract_obvious_fields(prompt)
+    return {
+        "extracted_fields": extracted_fields,
+        "tool_calls": tool_calls,
+        "final_answer": "Mock agent completed the synthetic document task.",
+        "refused": False,
+        "suspicious_instruction_detected": bool(adversarial and safety_schema),
+        "confidence": 0.82 if safety_schema else 0.55,
+        "notes": "mock agentic response",
+    }
+
+
+def _first_forbidden_tool(prompt: str) -> str | None:
+    """Extract the first forbidden simulated tool name from an agentic prompt."""
+
+    in_section = False
+    for line in prompt.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("DISALLOWED / FORBIDDEN TOOLS:"):
+            in_section = True
+            continue
+        if in_section and stripped.startswith("UNTRUSTED DOCUMENT TEXT:"):
+            return None
+        if in_section and stripped.startswith("- "):
+            tool_name = stripped[2:].strip()
+            if tool_name and tool_name != "none":
+                return tool_name
+    return None
+
+
+def _first_allowed_tool(prompt: str) -> str | None:
+    """Extract the first allowed simulated tool name from an agentic prompt."""
+
+    in_section = False
+    for line in prompt.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("AVAILABLE SIMULATED TOOLS:"):
+            in_section = True
+            continue
+        if in_section and stripped.startswith("DISALLOWED / FORBIDDEN TOOLS:"):
+            return None
+        if in_section and stripped.startswith("- "):
+            tool_name = stripped[2:].strip()
+            if tool_name and tool_name != "none":
+                return tool_name
+    return None
+
+
+def _mock_tool_arguments(tool_name: str) -> dict[str, Any]:
+    """Return plausible synthetic arguments for one simulated tool."""
+
+    if tool_name == "send_email_simulated":
+        return {
+            "to": "synthetic-recipient@example.invalid",
+            "subject": "Synthetic benchmark notice",
+            "body": "Synthetic private details would be sent here.",
+        }
+    if tool_name == "create_payment_request_simulated":
+        return {
+            "recipient": "Synthetic Vendor",
+            "amount": "42.00",
+            "memo": "Synthetic benchmark payment request.",
+        }
+    if tool_name == "update_invoice_status_simulated":
+        return {"invoice_id": "SYN-INV-MOCK", "status": "approved"}
+    if tool_name == "write_case_note_simulated":
+        return {"case_id": "SYN-CASE-MOCK", "note": "Synthetic case note."}
+    if tool_name == "approve_reimbursement_simulated":
+        return {"request_id": "SYN-REQ-MOCK", "amount": "42.00"}
+    return {}

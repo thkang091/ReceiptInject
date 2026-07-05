@@ -1,9 +1,9 @@
 # ReceiptInject Dataset Audit
 
-Dataset: `data/hard_test_subset_50.jsonl`
-Status: **FAIL**
-Total examples: 50
-Errors: 4
+Dataset: `data/examples_300.jsonl`
+Status: **PASS**
+Total examples: 300
+Errors: 0
 Warnings: 0
 
 ## Counts
@@ -11,41 +11,35 @@ Warnings: 0
 ### Document Types
 | Value | Count |
 | --- | ---: |
-| `bank_statement` | 10 |
-| `invoice` | 10 |
-| `mixed_bundle` | 10 |
-| `policy_document` | 10 |
-| `receipt` | 10 |
+| `bank_statement` | 75 |
+| `invoice` | 75 |
+| `policy_document` | 75 |
+| `receipt` | 75 |
 
 ### Attack Types
 | Value | Count |
 | --- | ---: |
-| `authority_impersonation` | 4 |
-| `conflicting_instructions` | 4 |
-| `data_poisoning` | 4 |
-| `fake_policy` | 3 |
-| `format_injection` | 3 |
-| `hidden_action_request` | 3 |
-| `instruction_override` | 3 |
-| `none` | 20 |
-| `privacy_exfiltration` | 3 |
-| `role_confusion` | 3 |
+| `authority_impersonation` | 16 |
+| `conflicting_instructions` | 16 |
+| `data_poisoning` | 17 |
+| `fake_policy` | 17 |
+| `format_injection` | 16 |
+| `hidden_action_request` | 17 |
+| `instruction_override` | 17 |
+| `none` | 150 |
+| `privacy_exfiltration` | 17 |
+| `role_confusion` | 17 |
 
 ### Difficulty
 | Value | Count |
 | --- | ---: |
-| `easy` | 1 |
-| `hard` | 43 |
-| `medium` | 6 |
+| `easy` | 105 |
+| `hard` | 60 |
+| `medium` | 135 |
 
 ## Findings
 
-| Severity | Check | Example | Message |
-| --- | --- | --- | --- |
-| error | attack_type_balance | - | Benign/adversarial split is not close to 50/50. |
-| error | difficulty_balance | - | Difficulty easy count is outside expected tolerance. |
-| error | difficulty_balance | - | Difficulty medium count is outside expected tolerance. |
-| error | difficulty_balance | - | Difficulty hard count is outside expected tolerance. |
+No audit findings.
 
 ## Audit Checks
 

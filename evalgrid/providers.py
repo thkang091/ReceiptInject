@@ -13,6 +13,8 @@ from dotenv import find_dotenv, load_dotenv
 from evalgrid.cost_tracker import estimate_tokens
 from evalgrid.schemas import ModelRequest, ModelResponse
 from receiptinject.model_clients import (
+    AnthropicModelClient,
+    GeminiModelClient,
     MistralModelClient,
     MockModelClient,
     ModelClientError,
@@ -136,6 +138,77 @@ class OpenAIProvider(BaseProvider):
         )
 
 
+class AnthropicProvider(BaseProvider):
+    """Anthropic provider using ReceiptInject's AnthropicModelClient."""
+
+    def __init__(self) -> None:
+        dotenv_path = find_dotenv(usecwd=True)
+        if dotenv_path:
+            load_dotenv(dotenv_path=dotenv_path, override=False)
+
+    def complete(self, request: ModelRequest, task_id: str) -> ModelResponse:
+        """Call Anthropic and normalize output."""
+
+        start = time.perf_counter()
+        try:
+            client = AnthropicModelClient(model=request.model_name)
+            parsed = client.complete_json(request.system_prompt, request.user_prompt)
+            raw_output: Any = parsed
+            error = None
+        except ModelClientError as exc:
+            raise ProviderError(str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001 - SDK errors vary.
+            raise ProviderError(str(exc)) from exc
+        latency = time.perf_counter() - start
+        return ModelResponse(
+            task_id=task_id,
+            model_provider=request.model_provider,
+            model_name=request.model_name,
+            raw_output=raw_output,
+            parsed_output=parsed,
+            input_tokens=estimate_tokens(f"{request.system_prompt}\n{request.user_prompt}"),
+            output_tokens=estimate_tokens(json.dumps(raw_output, sort_keys=True)),
+            latency_seconds=latency,
+            error=error,
+        )
+
+
+class GeminiProvider(BaseProvider):
+    """Gemini provider using ReceiptInject's GeminiModelClient."""
+
+    def __init__(self) -> None:
+        dotenv_path = find_dotenv(usecwd=True)
+        if dotenv_path:
+            load_dotenv(dotenv_path=dotenv_path, override=False)
+        print(f"GEMINI_API_KEY loaded: {'yes' if os.getenv('GEMINI_API_KEY') else 'no'}")
+
+    def complete(self, request: ModelRequest, task_id: str) -> ModelResponse:
+        """Call Gemini and normalize output."""
+
+        start = time.perf_counter()
+        try:
+            client = GeminiModelClient(model=request.model_name)
+            parsed = client.complete_json(request.system_prompt, request.user_prompt)
+            raw_output: Any = parsed
+            error = None
+        except ModelClientError as exc:
+            raise ProviderError(str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001 - API errors vary.
+            raise ProviderError(str(exc)) from exc
+        latency = time.perf_counter() - start
+        return ModelResponse(
+            task_id=task_id,
+            model_provider=request.model_provider,
+            model_name=request.model_name,
+            raw_output=raw_output,
+            parsed_output=parsed,
+            input_tokens=estimate_tokens(f"{request.system_prompt}\n{request.user_prompt}"),
+            output_tokens=estimate_tokens(json.dumps(raw_output, sort_keys=True)),
+            latency_seconds=latency,
+            error=error,
+        )
+
+
 class PlaceholderProvider(BaseProvider):
     """Provider placeholder that fails only when selected."""
 
@@ -163,9 +236,9 @@ def get_provider(provider: str) -> BaseProvider:
     if normalized == "openai":
         return OpenAIProvider()
     if normalized == "anthropic":
-        return PlaceholderProvider("Anthropic", "ANTHROPIC_API_KEY")
+        return AnthropicProvider()
     if normalized == "gemini":
-        return PlaceholderProvider("Gemini", "GEMINI_API_KEY")
+        return GeminiProvider()
     raise ValueError(
         f"Unknown provider `{provider}`. Supported: mock, mistral, openai, anthropic, gemini"
     )

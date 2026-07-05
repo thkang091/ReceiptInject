@@ -6,6 +6,7 @@ import pytest
 
 from receiptinject.dataset_generator import (
     audit_dataset,
+    generate_300_suite,
     generate_dataset,
     load_jsonl,
     render_audit_report,
@@ -43,6 +44,21 @@ def test_generate_500_matches_requested_document_composition() -> None:
         DocumentType.POLICY_DOCUMENT: 100,
         DocumentType.MIXED_BUNDLE: 50,
     }
+
+
+def test_generate_300_suite_has_four_balanced_document_types() -> None:
+    """The scaled 300-example suite should contain 75 of each core type."""
+
+    examples = generate_300_suite(seed=42)
+    counts = Counter(example.doc_type for example in examples)
+    assert counts == {
+        DocumentType.RECEIPT: 75,
+        DocumentType.INVOICE: 75,
+        DocumentType.BANK_STATEMENT: 75,
+        DocumentType.POLICY_DOCUMENT: 75,
+    }
+    summary = validate_dataset_balance(examples)
+    assert summary["benign_adversarial"] == Counter({"benign": 150, "adversarial": 150})
 
 
 def test_generate_500_matches_requested_difficulty_distribution() -> None:

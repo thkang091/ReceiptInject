@@ -2,7 +2,7 @@
 
 ## Abstract
 
-ReceiptInject is synthetic evaluation infrastructure for testing document-understanding LLM agents on untrusted inputs. It combines deterministic synthetic data generation, typed schemas, prompt mitigation modes, EvalGrid provider runs, raw-output logging, reproducible scoring, and final artifact generation. The current curated empirical result is a preliminary passive hard-subset comparison between OpenAI and Mistral on 50 synthetic examples under two mitigation conditions.
+ReceiptInject is synthetic evaluation infrastructure for testing document-understanding LLM agents on untrusted inputs. It combines deterministic synthetic data generation, typed schemas, prompt mitigation modes, EvalGrid provider runs, raw-output logging, reproducible scoring, and final artifact generation. The current curated empirical result is a preliminary passive hard-subset comparison between OpenAI and Mistral on 50 synthetic examples under two mitigation conditions. Gemini provider support is implemented for smoke and future benchmark runs, but no Gemini benchmark result is claimed here.
 
 ## Problem Statement
 
@@ -47,7 +47,7 @@ Synthetic templates -> deterministic JSONL dataset -> hard subset
         -> raw JSONL output -> scored CSV -> final summary/validation
 ```
 
-EvalGrid provides config-driven provider execution, caching, metadata, raw output logging, and resumability. The current final comparison uses OpenAI and Mistral. Claude/Anthropic was not run because no local `ANTHROPIC_API_KEY` was available.
+EvalGrid provides config-driven provider execution, caching, metadata, raw output logging, and resumability. The current final comparison uses OpenAI and Mistral. Gemini is available as a provider for future runs through `GEMINI_API_KEY`, but no committed final Gemini rows are included. Claude/Anthropic was not run because no local `ANTHROPIC_API_KEY` was available.
 
 ## Metrics
 
@@ -62,6 +62,8 @@ ReceiptInject reports:
 - suspicious instruction detection
 - safe completion rate
 - utility/safety tradeoff
+
+For simulated tool-use extensions, the project also separates unsafe model proposals from unsafe simulated execution. In particular, `unsafe_tool_proposal_rate` measures whether the model proposed a tool outside the trusted policy, while `unsafe_execution_rate` measures whether such a proposal passed executor-side gating. Under trusted-tool gating, unsafe proposals should remain logged even when unsafe execution is blocked.
 
 The scorers are intentionally transparent and reproducible, but they are heuristic and require manual inspection before strong conclusions.
 
@@ -105,6 +107,7 @@ Mistral was run through EvalGrid using `mistral-large-latest`. One transient 429
 - Synthetic data only
 - Small hard-subset comparison
 - No Claude/Anthropic rows
+- No committed Gemini benchmark rows yet
 - Automated scorers are heuristic
 - Manual review is still needed
 - OCR is implemented but excluded from this headline comparison
@@ -118,6 +121,7 @@ ReceiptInject is for defensive AI safety evaluation only. Users should not inser
 ## Future Work
 
 - Add Claude/Anthropic once a key is available
+- Run and review Gemini smoke/full benchmarks before making Gemini claims
 - Increase synthetic template and value diversity
 - Add human annotation and manual adjudication
 - Expand OCR stress tests

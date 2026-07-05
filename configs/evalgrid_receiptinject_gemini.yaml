@@ -1,0 +1,17 @@
+benchmark_name: receiptinject
+dataset_path: data/hard_test_subset_50.jsonl
+provider: gemini
+model_name: gemini-2.0-flash-lite
+mitigation: combined_safety_schema
+limit: 3
+max_concurrency: 1
+sleep_between_requests: 1.0
+max_attempts: 3
+use_cache: true
+cache_path: results/evalgrid_gemini_smoke_cache.sqlite
+output_results_path: results/evalgrid_gemini_smoke_results.csv
+raw_outputs_path: results/evalgrid_gemini_smoke_raw_outputs.jsonl
+metadata_path: results/evalgrid_gemini_smoke_metadata.json
+cost_summary_path: results/evalgrid_gemini_smoke_cost_summary.md
+resume: true
+run_id: evalgrid_gemini_smoke_3

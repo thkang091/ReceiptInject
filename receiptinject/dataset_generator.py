@@ -28,6 +28,13 @@ DOCUMENT_DISTRIBUTION = {
     DocumentType.MIXED_BUNDLE: 0.10,
 }
 
+FOUR_TYPE_300_DISTRIBUTION = {
+    DocumentType.RECEIPT: 0.25,
+    DocumentType.INVOICE: 0.25,
+    DocumentType.BANK_STATEMENT: 0.25,
+    DocumentType.POLICY_DOCUMENT: 0.25,
+}
+
 DIFFICULTY_DISTRIBUTION = {
     Difficulty.EASY: 0.35,
     Difficulty.MEDIUM: 0.45,
@@ -71,29 +78,27 @@ def generate_dataset(
     """
 
     total = _resolve_total(n=n, count=count)
-    rng = Random(seed)
-    doc_types = _expanded_counts(DOCUMENT_DISTRIBUTION, total)
-    difficulties = _expanded_counts(DIFFICULTY_DISTRIBUTION, total)
-    attack_types = _build_attack_plan(total)
+    return _generate_from_distribution(
+        total=total,
+        seed=seed,
+        document_distribution=DOCUMENT_DISTRIBUTION,
+    )
 
-    rng.shuffle(doc_types)
-    rng.shuffle(difficulties)
-    rng.shuffle(attack_types)
 
-    examples = [
-        _build_example(
-            index=index,
-            doc_type=doc_type,
-            attack_type=attack_type,
-            difficulty=difficulty,
-            rng=rng,
-        )
-        for index, (doc_type, attack_type, difficulty) in enumerate(
-            zip(doc_types, attack_types, difficulties, strict=True)
-        )
-    ]
-    validate_dataset_balance(examples)
-    return examples
+def generate_300_suite(seed: int = 0) -> list[BenchmarkExample]:
+    """Generate the 300-example four-document-type suite.
+
+    The suite is intended for scaled real-provider runs without changing the
+    existing 500-example benchmark composition or the 50-example hard subset.
+    It contains exactly 75 receipts, 75 invoices, 75 bank statements, and
+    75 policy documents.
+    """
+
+    return _generate_from_distribution(
+        total=300,
+        seed=seed,
+        document_distribution=FOUR_TYPE_300_DISTRIBUTION,
+    )
 
 
 def generate_receipt(index: int, seed: int = 0) -> BenchmarkExample:
@@ -395,6 +400,38 @@ def _build_example(
     )
 
 
+def _generate_from_distribution(
+    total: int,
+    seed: int,
+    document_distribution: dict[DocumentType, float],
+) -> list[BenchmarkExample]:
+    """Generate examples from an explicit document-type distribution."""
+
+    rng = Random(seed)
+    doc_types = _expanded_counts(document_distribution, total)
+    difficulties = _expanded_counts(DIFFICULTY_DISTRIBUTION, total)
+    attack_types = _build_attack_plan(total)
+
+    rng.shuffle(doc_types)
+    rng.shuffle(difficulties)
+    rng.shuffle(attack_types)
+
+    examples = [
+        _build_example(
+            index=index,
+            doc_type=doc_type,
+            attack_type=attack_type,
+            difficulty=difficulty,
+            rng=rng,
+        )
+        for index, (doc_type, attack_type, difficulty) in enumerate(
+            zip(doc_types, attack_types, difficulties, strict=True)
+        )
+    ]
+    validate_dataset_balance(examples)
+    return examples
+
+
 def _document_text_for(
     doc_type: DocumentType,
     attack_type: AttackType,
@@ -525,8 +562,8 @@ def _apply_instance_variants(
                 "Northstar Fabrication Studio": vendor,
                 "Meadowloop Research Co-op": client,
                 "SYN-INV-7784": invoice_id,
-                "2026-03-04": issue_date,
-                "2026-04-03": due_date,
+                "2026-03-04": "__RI_INVOICE_ISSUE_DATE__",
+                "2026-04-03": "__RI_INVOICE_DUE_DATE__",
                 "698.21": f"{invoice_total:.2f}",
                 "FAKE-PAYREF-7784": f"FAKE-PAYREF-{7000 + (index * 29) % 900:04d}",
             }
@@ -621,6 +658,14 @@ def _apply_instance_variants(
 
     for old, new in sorted(replacements.items(), key=lambda item: len(item[0]), reverse=True):
         document_text = document_text.replace(old, new)
+    document_text = document_text.replace(
+        "__RI_INVOICE_ISSUE_DATE__",
+        str(fields.get("issue_date", "__RI_INVOICE_ISSUE_DATE__")),
+    )
+    document_text = document_text.replace(
+        "__RI_INVOICE_DUE_DATE__",
+        str(fields.get("due_date", "__RI_INVOICE_DUE_DATE__")),
+    )
     return document_text, fields
 
 

@@ -10,8 +10,18 @@ import pytest
 
 from evalgrid.cli import clear_selected_files
 from evalgrid.config import EvalGridConfig, load_config
-from evalgrid.providers import MistralProvider, OpenAIProvider, ProviderError, get_provider
-from receiptinject.model_clients import MISTRAL_MISSING_KEY_MESSAGE, ModelClientError
+from evalgrid.providers import (
+    GeminiProvider,
+    MistralProvider,
+    OpenAIProvider,
+    ProviderError,
+    get_provider,
+)
+from receiptinject.model_clients import (
+    GEMINI_MISSING_KEY_MESSAGE,
+    MISTRAL_MISSING_KEY_MESSAGE,
+    ModelClientError,
+)
 from scripts.evalgrid_summarize import render_summary, select_run_rows
 
 
@@ -124,10 +134,27 @@ def test_openai_evalgrid_config_exists_and_validates() -> None:
     assert config.max_concurrency == 1
 
 
+def test_gemini_evalgrid_config_exists_and_is_smoke_sized() -> None:
+    """Gemini EvalGrid config should be conservative and smoke-sized."""
+
+    config = load_config("configs/evalgrid_receiptinject_gemini.yaml")
+    assert config.provider == "gemini"
+    assert config.model_name == "gemini-2.0-flash-lite"
+    assert config.dataset_path == "data/hard_test_subset_50.jsonl"
+    assert config.limit == 3
+    assert config.max_concurrency == 1
+
+
 def test_evalgrid_provider_factory_supports_openai() -> None:
     """Provider factory should route openai to the real OpenAI provider."""
 
     assert isinstance(get_provider("openai"), OpenAIProvider)
+
+
+def test_evalgrid_provider_factory_supports_gemini() -> None:
+    """Provider factory should route gemini to the real Gemini provider."""
+
+    assert isinstance(get_provider("gemini"), GeminiProvider)
 
 
 def test_openai_provider_missing_key_fails_gracefully(
@@ -146,6 +173,26 @@ def test_openai_provider_missing_key_fails_gracefully(
     with pytest.raises(ProviderError) as exc_info:
         provider.complete(_openai_request(), "task-1")
     assert "Missing OPENAI_API_KEY" in str(exc_info.value)
+    assert "test-secret" not in captured.out
+    assert "test-secret" not in str(exc_info.value)
+
+
+def test_gemini_provider_missing_key_fails_gracefully(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Gemini provider should fail clearly without printing secrets."""
+
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setattr("evalgrid.providers.find_dotenv", lambda usecwd=True: "")
+    monkeypatch.setattr("evalgrid.providers.GeminiModelClient", _MissingGeminiKeyClient)
+    provider = GeminiProvider()
+    captured = capsys.readouterr()
+    assert "GEMINI_API_KEY loaded: no" in captured.out
+
+    with pytest.raises(ProviderError) as exc_info:
+        provider.complete(_gemini_request(), "task-1")
+    assert "Missing GEMINI_API_KEY" in str(exc_info.value)
     assert "test-secret" not in captured.out
     assert "test-secret" not in str(exc_info.value)
 
@@ -201,12 +248,30 @@ class _MissingOpenAIKeyClient:
         raise ModelClientError(OPENAI_MISSING_KEY_MESSAGE)
 
 
+class _MissingGeminiKeyClient:
+    """Fake Gemini client that raises the same missing-key error."""
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        raise ModelClientError(GEMINI_MISSING_KEY_MESSAGE)
+
+
 def _openai_request():
     from evalgrid.schemas import ModelRequest
 
     return ModelRequest(
         model_provider="openai",
         model_name="gpt-4o-mini",
+        system_prompt="system",
+        user_prompt="user",
+    )
+
+
+def _gemini_request():
+    from evalgrid.schemas import ModelRequest
+
+    return ModelRequest(
+        model_provider="gemini",
+        model_name="gemini-2.0-flash-lite",
         system_prompt="system",
         user_prompt="user",
     )

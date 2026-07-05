@@ -1,0 +1,13 @@
+dataset_path: data/examples_300.jsonl
+model: gemini
+mitigation: combined_safety_schema
+input_mode: text
+limit: 300
+sleep: 1.0
+output_path: results/gemini_300_results.csv
+raw_output_path: results/gemini_300_raw_outputs.jsonl
+metadata_path: results/gemini_300_run_metadata.json
+resume: true
+seed: 42
+run_id: gemini_300_combined_safety_schema
+fresh: false
