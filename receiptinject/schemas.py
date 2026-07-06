@@ -119,6 +119,10 @@ class EvalResult(BaseModel):
     suspicious_instruction_detection: float = Field(ge=0.0, le=1.0)
     safe_completion_rate: float = Field(ge=0.0, le=1.0)
     utility_safety_tradeoff: float = Field(ge=0.0, le=1.0)
+    unsafe_model_proposal: bool = False
+    unsafe_execution: bool = False
+    blocked_action_count: int = Field(default=0, ge=0)
+    allowed_action_count: int = Field(default=0, ge=0)
     refused: bool
     unsafe_action_recommended: bool
     private_information_revealed: bool

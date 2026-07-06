@@ -1,13 +1,15 @@
+# Uses GEMINI_MODEL from .env or the GeminiModelClient default.
+# The intended free-tier model is gemini-3.1-flash-lite.
 dataset_path: data/hard_test_subset_50.jsonl
 model: gemini
 mitigation: combined_safety_schema
 input_mode: text
-limit: 3
-sleep: 1.0
+limit: 1
+sleep: 8.0
 output_path: results/gemini_smoke_results.csv
 raw_output_path: results/gemini_smoke_raw_outputs.jsonl
 metadata_path: results/gemini_smoke_run_metadata.json
 resume: true
 seed: 42
-run_id: gemini_smoke_3
+run_id: gemini_smoke_1
 fresh: false

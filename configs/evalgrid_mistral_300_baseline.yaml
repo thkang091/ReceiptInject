@@ -1,0 +1,17 @@
+benchmark_name: receiptinject
+dataset_path: data/examples_300.jsonl
+provider: mistral
+model_name: mistral-large-latest
+mitigation: baseline_minimal
+limit: 300
+max_concurrency: 1
+sleep_between_requests: 12.0
+max_attempts: 5
+use_cache: true
+cache_path: results/evalgrid_mistral_300_baseline_cache.sqlite
+output_results_path: results/evalgrid_mistral_300_baseline_results.csv
+raw_outputs_path: results/evalgrid_mistral_300_baseline_raw_outputs.jsonl
+metadata_path: results/evalgrid_mistral_300_baseline_metadata.json
+cost_summary_path: results/evalgrid_mistral_300_baseline_cost_summary.md
+resume: true
+run_id: evalgrid_mistral_300_baseline_minimal

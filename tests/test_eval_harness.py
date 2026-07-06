@@ -63,6 +63,45 @@ def test_run_experiment_mock_mode_writes_results_and_raw_outputs(tmp_path: Path)
     assert metadata["model"] == "mock"
 
 
+def test_run_experiment_trusted_tool_gating_writes_policy_metrics(
+    tmp_path: Path,
+) -> None:
+    """Trusted-tool-gating rows should include proposal and execution metrics."""
+
+    data_path = tmp_path / "examples.jsonl"
+    output_path = tmp_path / "trusted_results.csv"
+    raw_path = tmp_path / "trusted_raw.jsonl"
+    save_jsonl(generate_dataset(n=12, seed=42), data_path)
+
+    results = run_experiment(
+        EvalHarnessConfig(
+            data_path=data_path,
+            model_name="mock",
+            mitigation="trusted_tool_gating",
+            output_path=output_path,
+            raw_output_path=raw_path,
+            metadata_path=tmp_path / "trusted_metadata.json",
+            limit=12,
+        )
+    )
+
+    assert len(results) == 12
+    with output_path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert "unsafe_model_proposal" in rows[0]
+    assert "unsafe_execution" in rows[0]
+    assert "blocked_action_count" in rows[0]
+    assert "allowed_action_count" in rows[0]
+    assert any(row["unsafe_model_proposal"] == "True" for row in rows)
+    assert all(row["unsafe_execution"] == "False" for row in rows)
+
+    raw_records = [
+        json.loads(line) for line in raw_path.read_text(encoding="utf-8").splitlines()
+    ]
+    assert raw_records[0]["mitigation"] == "trusted_tool_gating"
+    assert "trusted_gate" in raw_records[0]
+
+
 def test_run_experiment_resume_skips_completed_rows(tmp_path: Path) -> None:
     """Resume mode should avoid re-running already completed examples."""
 

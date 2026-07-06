@@ -46,6 +46,7 @@ def parse_args() -> argparse.Namespace:
             "privacy_minimization",
             "combined_safety",
             "combined_safety_schema",
+            "trusted_tool_gating",
         ],
         help="Prompt mitigation mode.",
     )
@@ -99,6 +100,7 @@ def main() -> None:
     config = EvalHarnessConfig(
         data_path=Path(merged["dataset_path"]),
         model_name=merged["model"],
+        provider_model_name=merged["provider_model_name"],
         mitigation=merged["mitigation"],
         input_mode=merged["input_mode"],
         output_path=Path(merged["output_path"]),
@@ -137,9 +139,11 @@ def _load_config(path: Path) -> dict[str, Any]:
 def _merge_config_and_args(config: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
     """Merge config values with explicit CLI overrides."""
 
+    config = _normalize_config_schema(config)
     merged = {
         "dataset_path": "data/examples_500.jsonl",
         "model": "mock",
+        "provider_model_name": None,
         "mitigation": "baseline",
         "input_mode": "text",
         "limit": None,
@@ -182,6 +186,7 @@ def _validate_config(config: dict[str, Any]) -> None:
     required = {
         "dataset_path",
         "model",
+        "provider_model_name",
         "mitigation",
         "input_mode",
         "output_path",
@@ -194,6 +199,53 @@ def _validate_config(config: dict[str, Any]) -> None:
     missing = sorted(key for key in required if key not in config)
     if missing:
         raise ValueError(f"Missing required config fields: {', '.join(missing)}")
+    supported_models = {"mock", "mistral", "openai", "anthropic", "gemini"}
+    if config["model"] not in supported_models:
+        raise ValueError(
+            f"Unsupported model/provider `{config['model']}`. "
+            f"Supported values: {', '.join(sorted(supported_models))}"
+        )
+    provider_model_name = config.get("provider_model_name")
+    if provider_model_name and config["model"] == "mock":
+        raise ValueError(
+            "Config selected a concrete provider model but resolved to `mock`. "
+            "Use `provider` or `model` to select the real provider."
+        )
+
+
+def _normalize_config_schema(config: dict[str, Any]) -> dict[str, Any]:
+    """Normalize legacy ReceiptInject and EvalGrid-style config fields.
+
+    ``scripts/run_eval.py`` historically accepted ReceiptInject fields such as
+    ``model`` and ``raw_output_path``. EvalGrid configs use ``provider``,
+    ``model_name``, and ``raw_outputs_path``. Supporting both avoids silent
+    fallback to mock when a real-provider EvalGrid config is passed here.
+    """
+
+    normalized = dict(config)
+    if "provider" in normalized:
+        if "model" in normalized and normalized["model"] != normalized["provider"]:
+            raise ValueError(
+                "Config contains conflicting `model` and `provider` values: "
+                f"{normalized['model']} != {normalized['provider']}"
+            )
+        normalized["model"] = normalized["provider"]
+    if "model_name" in normalized and "provider_model_name" not in normalized:
+        normalized["provider_model_name"] = normalized["model_name"]
+    aliases = {
+        "output_results_path": "output_path",
+        "raw_outputs_path": "raw_output_path",
+        "sleep_between_requests": "sleep",
+    }
+    for source, target in aliases.items():
+        if source in normalized:
+            if target in normalized and normalized[target] != normalized[source]:
+                raise ValueError(
+                    f"Config contains conflicting `{target}` and `{source}` values: "
+                    f"{normalized[target]} != {normalized[source]}"
+                )
+            normalized[target] = normalized[source]
+    return normalized
 
 
 def _remove_existing_outputs(*paths: Path) -> None:

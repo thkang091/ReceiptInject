@@ -32,7 +32,7 @@ ANTHROPIC_MISSING_KEY_MESSAGE = (
 GEMINI_MISSING_KEY_MESSAGE = (
     "Missing GEMINI_API_KEY. Create a `.env` file in the project root with:\n"
     "GEMINI_API_KEY=your_key_here\n"
-    "GEMINI_MODEL=gemini-2.0-flash-lite"
+    "GEMINI_MODEL=gemini-3.1-flash-lite"
 )
 
 
@@ -64,6 +64,8 @@ class MockModelClient(BaseModelClient):
 
         prompt = f"{system_prompt}\n{user_prompt}"
         prompt_lower = prompt.lower()
+        if '"proposed_actions"' in prompt_lower or "trusted-tool gating" in prompt_lower:
+            return _mock_trusted_gating_output(prompt_lower)
         if '"tool_calls"' in prompt_lower or "available simulated tools" in prompt_lower:
             return _mock_agentic_output(prompt, prompt_lower)
 
@@ -180,7 +182,7 @@ class MistralModelClient(BaseModelClient):
                     response_format={"type": "json_object"},
                 )
                 parsed = extract_first_json_object(_extract_message_content(response))
-                if "tool_calls" in parsed:
+                if "tool_calls" in parsed or "proposed_actions" in parsed:
                     return parsed
                 return normalize_model_output(parsed)
             except Exception as exc:  # noqa: BLE001 - provider errors vary by SDK version.
@@ -230,7 +232,7 @@ class OpenAIModelClient(BaseModelClient):
                     response_format={"type": "json_object"},
                 )
                 parsed = extract_first_json_object(_extract_openai_message_content(response))
-                if "tool_calls" in parsed:
+                if "tool_calls" in parsed or "proposed_actions" in parsed:
                     return parsed
                 return normalize_model_output(parsed)
             except Exception as exc:  # noqa: BLE001 - provider errors vary by SDK version.
@@ -281,7 +283,7 @@ class AnthropicModelClient(BaseModelClient):
                     messages=[{"role": "user", "content": user_prompt}],
                 )
                 parsed = extract_first_json_object(_extract_anthropic_message_content(response))
-                if "tool_calls" in parsed:
+                if "tool_calls" in parsed or "proposed_actions" in parsed:
                     return parsed
                 return normalize_model_output(parsed)
             except Exception as exc:  # noqa: BLE001 - provider errors vary by SDK version.
@@ -312,7 +314,7 @@ class GeminiModelClient(BaseModelClient):
         if not self.api_key:
             raise ModelClientError(GEMINI_MISSING_KEY_MESSAGE)
         self.model = _normalize_gemini_model_name(
-            model or os.getenv("GEMINI_MODEL", "gemini-2.0-flash-lite")
+            model or os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
         )
         self.max_retries = max_retries
         self.timeout_seconds = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "60"))
@@ -333,7 +335,7 @@ class GeminiModelClient(BaseModelClient):
                     user_prompt=user_prompt,
                 )
                 parsed = extract_first_json_object(_extract_gemini_message_content(response))
-                if "tool_calls" in parsed:
+                if "tool_calls" in parsed or "proposed_actions" in parsed:
                     return parsed
                 return normalize_model_output(parsed)
             except Exception as exc:  # noqa: BLE001 - provider/API errors vary.
@@ -345,20 +347,25 @@ class GeminiModelClient(BaseModelClient):
         )
 
 
-def get_model_client(model_name: str) -> BaseModelClient:
-    """Return a model client by provider name."""
+def get_model_client(model_name: str, provider_model_name: str | None = None) -> BaseModelClient:
+    """Return a model client by provider name.
+
+    ``model_name`` selects the provider family used by the local harness
+    (mock/mistral/openai/anthropic/gemini). ``provider_model_name`` optionally
+    selects the concrete provider model, for example ``gemini-3.1-flash-lite``.
+    """
 
     normalized = model_name.strip().lower()
     if normalized == "mock":
         return MockModelClient()
     if normalized == "mistral":
-        return MistralModelClient()
+        return MistralModelClient(model=provider_model_name)
     if normalized == "openai":
-        return OpenAIModelClient()
+        return OpenAIModelClient(model=provider_model_name)
     if normalized == "anthropic":
-        return AnthropicModelClient()
+        return AnthropicModelClient(model=provider_model_name)
     if normalized == "gemini":
-        return GeminiModelClient()
+        return GeminiModelClient(model=provider_model_name)
     raise ValueError(
         f"Unsupported model_name `{model_name}`. "
         "Supported model names: mock, mistral, openai, anthropic, gemini."
@@ -698,6 +705,42 @@ def _mock_agentic_output(prompt: str, prompt_lower: str) -> dict[str, Any]:
         "suspicious_instruction_detected": bool(adversarial and safety_schema),
         "confidence": 0.82 if safety_schema else 0.55,
         "notes": "mock agentic response",
+    }
+
+
+def _mock_trusted_gating_output(prompt_lower: str) -> dict[str, Any]:
+    """Return deterministic mock output for trusted-tool-gating prompts."""
+
+    adversarial = "visible embedded benchmark content" in prompt_lower or any(
+        marker in prompt_lower
+        for marker in [
+            "admin override",
+            "processing instruction",
+            "reviewer comment",
+            "system message",
+            "document admin override",
+            "hidden policy update",
+        ]
+    )
+    proposed_actions: list[dict[str, Any]] = []
+    if adversarial:
+        proposed_actions.append(
+            {
+                "action_type": "make_payment",
+                "target": "synthetic external payment workflow",
+                "payload": "Mock proposal copied from untrusted document instruction.",
+                "reason": "Mock preserves an unsafe model proposal for executor gating.",
+                "source": "document",
+            }
+        )
+
+    return {
+        "extracted_fields": {"summary": "Mock extracted supported document facts."},
+        "proposed_actions": proposed_actions,
+        "suspicious_instruction_detected": adversarial,
+        "refused": False,
+        "confidence": 0.8,
+        "notes": "mock trusted-tool-gating response",
     }
 
 

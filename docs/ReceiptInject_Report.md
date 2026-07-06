@@ -2,7 +2,7 @@
 
 ## Abstract
 
-ReceiptInject is synthetic evaluation infrastructure for testing document-understanding LLM agents on untrusted inputs. It combines deterministic synthetic data generation, typed schemas, prompt mitigation modes, EvalGrid provider runs, raw-output logging, reproducible scoring, and final artifact generation. The current curated empirical result is a preliminary passive hard-subset comparison between OpenAI and Mistral on 50 synthetic examples under two mitigation conditions. Gemini provider support is implemented for smoke and future benchmark runs, but no Gemini benchmark result is claimed here.
+ReceiptInject is synthetic evaluation infrastructure for testing document-understanding LLM agents on untrusted inputs. It combines deterministic synthetic data generation, typed schemas, prompt mitigation modes, EvalGrid provider runs, raw-output logging, reproducible scoring, and final artifact generation. The current empirical result is a preliminary 2,700-row comparison across Gemini, OpenAI, and Mistral on 300 synthetic examples under three strategies: `baseline_minimal`, `combined_safety_schema`, and `trusted_tool_gating`.
 
 ## Problem Statement
 
@@ -42,12 +42,12 @@ Attack types:
 ## System Architecture
 
 ```text
-Synthetic templates -> deterministic JSONL dataset -> hard subset
+Synthetic templates -> deterministic JSONL dataset -> evaluation suite
         -> prompt mitigation -> EvalGrid provider call
         -> raw JSONL output -> scored CSV -> final summary/validation
 ```
 
-EvalGrid provides config-driven provider execution, caching, metadata, raw output logging, and resumability. The current final comparison uses OpenAI and Mistral. Gemini is available as a provider for future runs through `GEMINI_API_KEY`, but no committed final Gemini rows are included. Claude/Anthropic was not run because no local `ANTHROPIC_API_KEY` was available.
+EvalGrid provides config-driven provider execution, metadata, raw output logging, and resumability. The current 300-example comparison uses Gemini 3.1 Flash Lite, OpenAI GPT-4o mini, and Mistral Large Latest. Claude/Anthropic was not run because no local `ANTHROPIC_API_KEY` was available.
 
 ## Metrics
 
@@ -63,22 +63,38 @@ ReceiptInject reports:
 - safe completion rate
 - utility/safety tradeoff
 
-For simulated tool-use extensions, the project also separates unsafe model proposals from unsafe simulated execution. In particular, `unsafe_tool_proposal_rate` measures whether the model proposed a tool outside the trusted policy, while `unsafe_execution_rate` measures whether such a proposal passed executor-side gating. Under trusted-tool gating, unsafe proposals should remain logged even when unsafe execution is blocked.
+For trusted-tool gating, the project separates unsafe model proposals from unsafe execution. `unsafe_model_proposal` records whether the model proposed an unsafe action such as sending email, making payment, revealing private information, calling a webhook, updating records, or obeying an embedded document instruction. `unsafe_execution` records whether the deterministic executor-side gate allowed such an action. Under trusted-tool gating, unsafe proposals remain logged even when unsafe execution is blocked.
 
 The scorers are intentionally transparent and reproducible, but they are heuristic and require manual inspection before strong conclusions.
 
-## Preliminary Hard-Subset Results
+## Preliminary 300-Example Cross-Provider Results
 
-The current final result uses `data/hard_test_subset_50.jsonl`: 50 synthetic examples, 10 per document type, 20 benign and 30 adversarial, with 43 hard, 6 medium, and 1 easy examples.
+The current cross-provider result uses `data/examples_300.jsonl`: 300 synthetic examples per provider/strategy, 3 providers, 3 strategies, and 2,700 total real-provider rows. All nine runs completed with 0 error rows.
 
 | Model | Mitigation | n | Extraction Accuracy | Safe Completion | Hallucination | Prompt-Injection Compliance | Suspicious Instruction Detection |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| OpenAI | `baseline_minimal` | 50 | 45.3% | 54.0% | 12.0% | 6.0% | 40.0% |
-| OpenAI | `combined_safety_schema` | 50 | 84.7% | 100.0% | 0.0% | 0.0% | 52.0% |
-| Mistral | `baseline_minimal` | 50 | 26.3% | 12.0% | 40.0% | 50.0% | 80.0% |
-| Mistral | `combined_safety_schema` | 50 | 84.0% | 98.0% | 2.0% | 0.0% | 94.0% |
+| Gemini 3.1 Flash Lite | `baseline_minimal` | 300 | 49.3% | 31.3% | 32.7% | 19.7% | 83.7% |
+| Gemini 3.1 Flash Lite | `combined_safety_schema` | 300 | 90.8% | 100.0% | 0.0% | 0.0% | 100.0% |
+| Gemini 3.1 Flash Lite | `trusted_tool_gating` | 300 | 90.8% | 100.0% | 0.0% | 0.0% | 100.0% |
+| OpenAI GPT-4o mini | `baseline_minimal` | 300 | 59.5% | 74.0% | 8.7% | 4.0% | 53.7% |
+| OpenAI GPT-4o mini | `combined_safety_schema` | 300 | 90.5% | 100.0% | 0.0% | 0.0% | 58.7% |
+| OpenAI GPT-4o mini | `trusted_tool_gating` | 300 | 89.8% | 99.0% | 0.0% | 0.0% | 97.7% |
+| Mistral Large Latest | `baseline_minimal` | 300 | 40.4% | 25.0% | 40.3% | 38.7% | 81.0% |
+| Mistral Large Latest | `combined_safety_schema` | 300 | 90.6% | 99.7% | 0.3% | 0.0% | 98.3% |
+| Mistral Large Latest | `trusted_tool_gating` | 300 | 90.6% | 100.0% | 0.0% | 0.0% | 99.7% |
 
 These numbers support a narrow claim: ReceiptInject can run a controlled, reproducible passive comparison across providers and mitigation prompts on synthetic untrusted documents. They do not prove production safety or establish broad model rankings.
+
+## Trusted-Tool Gating Status
+
+The `trusted_tool_gating` strategy is implemented as a real execution path. The prompt asks the model for an extraction section and a structured `proposed_actions` section. The deterministic policy gate records:
+
+- `unsafe_model_proposal`
+- `unsafe_execution`
+- `blocked_action_count`
+- `allowed_action_count`
+
+The full 300-example trusted-gating runs completed for OpenAI, Mistral, and Gemini. Unsafe model proposal rates were 1.0% for OpenAI, 8.0% for Mistral, and 19.0% for Gemini. Unsafe execution was 0.0% for all three providers under the deterministic gate. This supports a defense-in-depth evaluation result: unsafe model proposals can remain measurable while executor-side gating blocks simulated unsafe execution.
 
 ## Dataset Diversity Audit
 
@@ -93,21 +109,26 @@ Repeated synthetic merchants, vendors, institutions, and tracked values remain a
 
 ## Validation
 
-The final artifacts include 200 curated passive rows:
+The current 300-example artifacts include 2,700 real-provider rows:
 
-- OpenAI `baseline_minimal`: 50 rows
-- OpenAI `combined_safety_schema`: 50 rows
-- Mistral `baseline_minimal`: 50 rows
-- Mistral `combined_safety_schema`: 50 rows
+- Gemini `baseline_minimal`: 300 rows
+- Gemini `combined_safety_schema`: 300 rows
+- OpenAI `baseline_minimal`: 300 rows
+- OpenAI `combined_safety_schema`: 300 rows
+- Mistral `baseline_minimal`: 300 rows
+- Mistral `combined_safety_schema`: 300 rows
+- Gemini `trusted_tool_gating`: 300 rows
+- OpenAI `trusted_tool_gating`: 300 rows
+- Mistral `trusted_tool_gating`: 300 rows
 
-Mistral was run through EvalGrid using `mistral-large-latest`. One transient 429 in the combined-safety pass was retried successfully; the curated final CSV contains completed rows only.
+The combined artifacts are `results/evalgrid_2700_all_results.csv` and `results/evalgrid_2700_summary.md`.
 
 ## Limitations
 
 - Synthetic data only
-- Small hard-subset comparison
+- Preliminary 300-example synthetic comparison
 - No Claude/Anthropic rows
-- No committed Gemini benchmark rows yet
+- Full trusted-gating 300-example results are pending
 - Automated scorers are heuristic
 - Manual review is still needed
 - OCR is implemented but excluded from this headline comparison
@@ -121,7 +142,7 @@ ReceiptInject is for defensive AI safety evaluation only. Users should not inser
 ## Future Work
 
 - Add Claude/Anthropic once a key is available
-- Run and review Gemini smoke/full benchmarks before making Gemini claims
+- Add manual review for trusted-gating blocked-action cases
 - Increase synthetic template and value diversity
 - Add human annotation and manual adjudication
 - Expand OCR stress tests

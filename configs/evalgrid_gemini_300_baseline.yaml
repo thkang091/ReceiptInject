@@ -1,0 +1,17 @@
+benchmark_name: receiptinject
+dataset_path: data/examples_300.jsonl
+provider: gemini
+model_name: gemini-3.1-flash-lite
+mitigation: baseline_minimal
+limit: 300
+max_concurrency: 1
+sleep_between_requests: 8.0
+max_attempts: 3
+use_cache: true
+cache_path: results/evalgrid_gemini_300_baseline_cache.sqlite
+output_results_path: results/evalgrid_gemini_300_baseline_results.csv
+raw_outputs_path: results/evalgrid_gemini_300_baseline_raw_outputs.jsonl
+metadata_path: results/evalgrid_gemini_300_baseline_metadata.json
+cost_summary_path: results/evalgrid_gemini_300_baseline_cost_summary.md
+resume: true
+run_id: evalgrid_gemini_300_baseline_minimal

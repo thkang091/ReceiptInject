@@ -5,6 +5,7 @@ tqdm
 pyyaml
 mistralai
 openai
+anthropic
 reportlab
 pillow
 matplotlib

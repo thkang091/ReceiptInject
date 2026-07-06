@@ -139,10 +139,122 @@ def test_gemini_evalgrid_config_exists_and_is_smoke_sized() -> None:
 
     config = load_config("configs/evalgrid_receiptinject_gemini.yaml")
     assert config.provider == "gemini"
-    assert config.model_name == "gemini-2.0-flash-lite"
+    assert config.model_name == "gemini-3.1-flash-lite"
     assert config.dataset_path == "data/hard_test_subset_50.jsonl"
-    assert config.limit == 3
+    assert config.limit == 1
     assert config.max_concurrency == 1
+    assert config.sleep_between_requests >= 8.0
+
+
+def test_gemini_300_strategy_configs_are_split_and_conservative() -> None:
+    """Gemini 300-example configs should avoid same-day free-tier overreach."""
+
+    expected = {
+        "configs/evalgrid_gemini_300_baseline.yaml": "baseline_minimal",
+        "configs/evalgrid_gemini_300_safety_schema.yaml": "combined_safety_schema",
+    }
+    for config_path, mitigation in expected.items():
+        config = load_config(config_path)
+        assert config.provider == "gemini"
+        assert config.model_name == "gemini-3.1-flash-lite"
+        assert config.dataset_path == "data/examples_300.jsonl"
+        assert config.mitigation == mitigation
+        assert config.limit == 300
+        assert config.max_concurrency == 1
+        assert config.sleep_between_requests >= 8.0
+        assert config.resume is True
+        assert "gemini_300" in config.output_results_path
+
+
+def test_openai_and_mistral_300_configs_are_split_and_real_provider() -> None:
+    """OpenAI/Mistral 300-example configs should be real-provider and unique."""
+
+    expected = {
+        "configs/evalgrid_mistral_300_baseline.yaml": (
+            "mistral",
+            "mistral-large-latest",
+            "baseline_minimal",
+            "mistral_300_baseline",
+        ),
+        "configs/evalgrid_mistral_300_safety_schema.yaml": (
+            "mistral",
+            "mistral-large-latest",
+            "combined_safety_schema",
+            "mistral_300_safety_schema",
+        ),
+        "configs/evalgrid_openai_300_baseline.yaml": (
+            "openai",
+            "gpt-4o-mini",
+            "baseline_minimal",
+            "openai_300_baseline",
+        ),
+        "configs/evalgrid_openai_300_safety_schema.yaml": (
+            "openai",
+            "gpt-4o-mini",
+            "combined_safety_schema",
+            "openai_300_safety_schema",
+        ),
+    }
+    for config_path, (provider, model_name, mitigation, path_marker) in expected.items():
+        config = load_config(config_path)
+        assert config.provider == provider
+        assert config.model_name == model_name
+        assert config.model_name != "mock"
+        assert config.dataset_path == "data/examples_300.jsonl"
+        assert config.mitigation == mitigation
+        assert config.limit == 300
+        assert config.max_concurrency == 1
+        assert config.resume is True
+        assert path_marker in config.output_results_path
+        assert path_marker in config.raw_outputs_path
+        assert path_marker in config.metadata_path
+
+
+def test_trusted_gating_300_configs_are_real_provider_and_unique() -> None:
+    """Trusted-gating configs should be executable real-provider configs."""
+
+    expected = {
+        "configs/evalgrid_gemini_300_trusted_gating.yaml": (
+            "gemini",
+            "gemini-3.1-flash-lite",
+            "gemini_300_trusted_gating",
+        ),
+        "configs/evalgrid_mistral_300_trusted_gating.yaml": (
+            "mistral",
+            "mistral-large-latest",
+            "mistral_300_trusted_gating",
+        ),
+        "configs/evalgrid_openai_300_trusted_gating.yaml": (
+            "openai",
+            "gpt-4o-mini",
+            "openai_300_trusted_gating",
+        ),
+    }
+    for config_path, (provider, model_name, path_marker) in expected.items():
+        config = load_config(config_path)
+        assert config.provider == provider
+        assert config.model_name == model_name
+        assert config.model_name != "mock"
+        assert config.mitigation == "trusted_tool_gating"
+        assert config.limit == 300
+        assert config.max_concurrency == 1
+        assert path_marker in config.output_results_path
+        assert path_marker in config.raw_outputs_path
+        assert path_marker in config.metadata_path
+
+
+def test_gemini_trusted_gating_config_is_explicitly_planning_only() -> None:
+    """Trusted gating should not masquerade as a runnable passive EvalGrid config."""
+
+    import yaml
+
+    config_path = Path("configs/evalgrid_gemini_300_trusted_gating.todo.yaml")
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    assert config["strategy"] == "trusted_tool_gating"
+    assert config["status"] == "not_runnable_until_agentic_adapter_exists"
+    assert config["model_name"] == "gemini-3.1-flash-lite"
+    assert config["sleep_between_requests"] >= 8.0
+    assert "gemini_300_trusted_gating" in config["output_results_path"]
 
 
 def test_evalgrid_provider_factory_supports_openai() -> None:
@@ -271,7 +383,7 @@ def _gemini_request():
 
     return ModelRequest(
         model_provider="gemini",
-        model_name="gemini-2.0-flash-lite",
+        model_name="gemini-3.1-flash-lite",
         system_prompt="system",
         user_prompt="user",
     )

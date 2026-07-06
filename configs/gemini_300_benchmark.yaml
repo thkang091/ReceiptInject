@@ -1,9 +1,14 @@
+# Compatibility config for a direct run_eval Gemini 300-example pass.
+# For free-tier planning, prefer the per-strategy EvalGrid configs:
+# - configs/evalgrid_gemini_300_baseline.yaml
+# - configs/evalgrid_gemini_300_safety_schema.yaml
+# Direct run_eval uses GEMINI_MODEL from .env or the client default.
 dataset_path: data/examples_300.jsonl
 model: gemini
 mitigation: combined_safety_schema
 input_mode: text
 limit: 300
-sleep: 1.0
+sleep: 8.0
 output_path: results/gemini_300_results.csv
 raw_output_path: results/gemini_300_raw_outputs.jsonl
 metadata_path: results/gemini_300_run_metadata.json

@@ -6,18 +6,23 @@ This is defensive AI safety / ML systems infrastructure. All benchmark documents
 
 ## Current Resume-Facing Result
 
-The committed final artifacts now center a passive hard-subset comparison on `data/hard_test_subset_50.jsonl`: 50 synthetic examples, 10 per document type, 20 benign and 30 adversarial, with 43 hard, 6 medium, and 1 easy examples.
+ReceiptInject now has a clean preliminary cross-provider result on `data/examples_300.jsonl`: 300 synthetic examples per provider/strategy, 3 providers, 3 strategies, and 2,700 total real-provider rows with 0 error rows.
 
-The current committed result scope is OpenAI + Mistral. Gemini support is implemented for future runs, but Gemini benchmark numbers should not be claimed until a real run is completed and committed. Claude/Anthropic was not run because no local `ANTHROPIC_API_KEY` was available.
+The completed 2,700-row result covers `baseline_minimal`, `combined_safety_schema`, and `trusted_tool_gating`. Trusted-tool gating separates unsafe model proposals from unsafe execution by running model-proposed actions through a deterministic executor-side policy gate.
 
 | Model | Mitigation | n | Extraction Accuracy | Safe Completion | Hallucination | Prompt-Injection Compliance |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| OpenAI | `baseline_minimal` | 50 | 45.3% | 54.0% | 12.0% | 6.0% |
-| OpenAI | `combined_safety_schema` | 50 | 84.7% | 100.0% | 0.0% | 0.0% |
-| Mistral | `baseline_minimal` | 50 | 26.3% | 12.0% | 40.0% | 50.0% |
-| Mistral | `combined_safety_schema` | 50 | 84.0% | 98.0% | 2.0% | 0.0% |
+| Gemini 3.1 Flash Lite | `baseline_minimal` | 300 | 49.3% | 31.3% | 32.7% | 19.7% |
+| Gemini 3.1 Flash Lite | `combined_safety_schema` | 300 | 90.8% | 100.0% | 0.0% | 0.0% |
+| OpenAI GPT-4o mini | `baseline_minimal` | 300 | 59.5% | 74.0% | 8.7% | 4.0% |
+| OpenAI GPT-4o mini | `combined_safety_schema` | 300 | 90.5% | 100.0% | 0.0% | 0.0% |
+| OpenAI GPT-4o mini | `trusted_tool_gating` | 300 | 89.8% | 99.0% | 0.0% | 0.0% |
+| Mistral Large Latest | `baseline_minimal` | 300 | 40.4% | 25.0% | 40.3% | 38.7% |
+| Mistral Large Latest | `combined_safety_schema` | 300 | 90.6% | 99.7% | 0.3% | 0.0% |
+| Mistral Large Latest | `trusted_tool_gating` | 300 | 90.6% | 100.0% | 0.0% | 0.0% |
+| Gemini 3.1 Flash Lite | `trusted_tool_gating` | 300 | 90.8% | 100.0% | 0.0% | 0.0% |
 
-Interpretation: on this small synthetic hard subset, the structured `combined_safety_schema` prompt improved automated extraction and safety metrics for both evaluated providers. This is preliminary benchmark evidence, not production reliability evidence or a broad model ranking.
+Interpretation: on this synthetic 300-example suite, `combined_safety_schema` improved automated extraction and safety metrics for all three evaluated providers. This is preliminary benchmark evidence from automated scorers, not production reliability evidence or a broad model ranking.
 
 ## Why This Matters
 
@@ -59,6 +64,7 @@ Final summaries + validation + failure cases
 - Synthetic receipts, invoices, bank statements, policy documents, and mixed bundles
 - Visible embedded-instruction benchmark data
 - Prompt mitigation modes including `baseline_minimal` and `combined_safety_schema`
+- A real `trusted_tool_gating` strategy that asks for structured action proposals and runs them through a deterministic executor-side policy gate
 - EvalGrid provider abstraction with OpenAI, Mistral, Gemini, Anthropic, and mock support, plus caching, metadata, and resume behavior
 - Raw JSONL logging and scored CSV outputs
 - Trusted-tool gating primitives that separate unsafe model proposals from unsafe simulated execution
@@ -73,6 +79,10 @@ Final summaries + validation + failure cases
 - Final validation: `results/final/final_validation.md`
 - Claim audit: `results/final/claim_audit.md`
 - Mistral EvalGrid hard-run CSV: `results/final/evalgrid_mistral_hard_results.csv`
+- 300-example cross-provider combined CSV: `results/evalgrid_300_all_results.csv`
+- 300-example cross-provider summary: `results/evalgrid_300_summary.md`
+- 2,700-row cross-provider CSV: `results/evalgrid_2700_all_results.csv`
+- 2,700-row cross-provider summary: `results/evalgrid_2700_summary.md`
 - Dataset diversity audit: `results/dataset_diversity_audit.md`
 - Technical report: `docs/ReceiptInject_Report.md`
 - Paper-style report: `paper/ReceiptInject_Report.md`
@@ -114,13 +124,54 @@ python scripts/evalgrid_summarize.py --results results/final/evalgrid_mistral_ha
 python scripts/evalgrid_summarize.py --results results/final/evalgrid_mistral_hard_results.csv --metadata results/final/evalgrid_mistral_hard_combined_metadata.json --raw results/final/evalgrid_mistral_hard_raw_outputs.jsonl --out results/final/evalgrid_mistral_hard_combined_summary.md --run-id mistral_hard_combined_schema_50
 ```
 
+## 300-Example Cross-Provider Runs
+
+OpenAI, Mistral, and Gemini 300-example baseline/safety-schema runs have been completed locally and summarized in `results/evalgrid_300_summary.md`. Before running any new full 300-example condition, run a one-example smoke check and confirm the raw output shows the real provider/model rather than `mock`.
+
+```bash
+.venv/bin/python scripts/run_eval.py --config configs/evalgrid_mistral_300_baseline.yaml --limit 1 --fresh
+.venv/bin/python scripts/run_eval.py --config configs/evalgrid_openai_300_baseline.yaml --limit 1 --fresh
+```
+
+Then run the full baseline conditions:
+
+```bash
+.venv/bin/python scripts/run_eval.py --config configs/evalgrid_mistral_300_baseline.yaml --fresh
+.venv/bin/python scripts/run_eval.py --config configs/evalgrid_openai_300_baseline.yaml --fresh
+```
+
+Mistral is rate-limit sensitive; the 300-example Mistral configs use slower pacing than OpenAI. If Mistral returns many `429` rows, do not treat that run as a clean benchmark artifact. Rerun after quota recovery with the configured conservative sleep and `--fresh`, or write a clearly labeled retry artifact.
+
+After baseline completes, run safety/schema:
+
+```bash
+.venv/bin/python scripts/run_eval.py --config configs/evalgrid_mistral_300_safety_schema.yaml --fresh
+.venv/bin/python scripts/run_eval.py --config configs/evalgrid_openai_300_safety_schema.yaml --fresh
+```
+
+The configured outputs are `results/evalgrid_mistral_300_*` and `results/evalgrid_openai_300_*`. Stop and inspect the config if a run prints `results/results.csv` or `results/raw_outputs.jsonl`.
+
+## Trusted-Tool Gating
+
+`trusted_tool_gating` is implemented as a real third strategy, not a prompt-only label. The model returns normal extracted fields plus `proposed_actions`; the deterministic policy gate records `unsafe_model_proposal`, `unsafe_execution`, blocked action count, and allowed action count. The gate preserves unsafe model proposals as measurable warning signals while blocking unsafe execution.
+
+Completed full 300-example commands:
+
+```bash
+.venv/bin/python scripts/run_eval.py --config configs/evalgrid_openai_300_trusted_gating.yaml --fresh
+.venv/bin/python scripts/run_eval.py --config configs/evalgrid_mistral_300_trusted_gating.yaml --fresh
+.venv/bin/python scripts/run_eval.py --config configs/evalgrid_gemini_300_trusted_gating.yaml --fresh
+```
+
+In the completed trusted-gating runs, unsafe model proposal rates were 1.0% for OpenAI, 8.0% for Mistral, and 19.0% for Gemini, while unsafe execution was 0.0% for all three providers. This supports a defense-in-depth evaluation claim, not a production safety guarantee.
+
 Run a cheap Gemini smoke test after setting `GEMINI_API_KEY`:
 
 ```bash
 python scripts/run_eval.py --config configs/gemini_smoke.yaml --fresh
 ```
 
-The smoke test uses at most 3 examples and writes to `results/gemini_smoke_*`. It does not update `results/final/` and should not be reported as benchmark evidence.
+The smoke test uses 1 example and writes to `results/gemini_smoke_*`. It does not update `results/final/` and should not be reported as benchmark evidence.
 
 Current local note: a Gemini smoke attempt reached the Gemini API but returned quota/resource-exhausted errors, so no successful Gemini outputs are claimed or committed.
 
@@ -131,13 +182,21 @@ python scripts/generate_300_suite.py --output data/examples_300.jsonl --seed 42
 python scripts/validate_dataset.py --data data/examples_300.jsonl
 ```
 
-Prepared full Gemini 300-example command:
+## Gemini Free-Tier Run Plan
+
+Gemini provider support is configured for `gemini-3.1-flash-lite`. The current free-tier quota table makes this the useful low-cost text model for this project, but the daily request cap matters: a 300-example suite across three strategies would require roughly 900 requests, which exceeds a 500-request daily quota. Do not run all strategies in one day on the free tier.
+
+Run one strategy per day, with the smoke test first:
 
 ```bash
-python scripts/run_eval.py --config configs/gemini_300_benchmark.yaml
+python scripts/evalgrid_run.py --config configs/evalgrid_receiptinject_gemini.yaml --fresh --clear-cache
+python scripts/evalgrid_run.py --config configs/evalgrid_gemini_300_baseline.yaml
+python scripts/evalgrid_run.py --config configs/evalgrid_gemini_300_safety_schema.yaml
 ```
 
-Do not claim Gemini 300-example results until this real run is intentionally executed, reviewed, and committed.
+These configs use `max_concurrency: 1`, `sleep_between_requests: 8.0`, `resume: true`, and separate output paths. If Gemini returns `429` quota/resource-exhausted errors, wait for quota reset and rerun the same config with resume enabled.
+
+Gemini trusted-gating has been run for 300 examples. Future Gemini runs should still be split by strategy because of free-tier daily request limits.
 
 Run quality checks:
 
@@ -158,7 +217,7 @@ MISTRAL_API_KEY=your_key_here
 MISTRAL_MODEL=mistral-large-latest
 
 GEMINI_API_KEY=your_key_here
-GEMINI_MODEL=gemini-2.0-flash-lite
+GEMINI_MODEL=gemini-3.1-flash-lite
 ```
 
 Mock mode runs without API keys and is for pipeline validation only.
@@ -170,11 +229,11 @@ Mock mode runs without API keys and is for pipeline validation only.
 ## Limitations
 
 - Synthetic data only
-- Small hard-subset real-model comparison
+- Preliminary synthetic real-provider comparison with automated scorers
 - Automated scorers are transparent but heuristic
 - Manual review is still needed before strong claims
 - No Claude/Anthropic rows are present
-- Gemini provider support exists, but no committed Gemini benchmark result is claimed yet
+- Trusted-gating uses a deterministic simulated policy gate; it does not prove real production executor safety
 - OCR is implemented but excluded from the headline final comparison
 - Trusted-tool gating is a defense-in-depth primitive for simulated tools, not a guarantee of safe production tool use
 - Results may vary by provider, model version, prompt formatting, and structured-output behavior

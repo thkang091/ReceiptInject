@@ -1,0 +1,21 @@
+# Deprecated planning-only placeholder.
+# Use configs/evalgrid_gemini_300_trusted_gating.yaml for the real executable
+# trusted-tool-gating strategy.
+# The current passive EvalGrid ReceiptInject adapter supports prompt mitigations
+# such as baseline_minimal and combined_safety_schema. It does not yet execute
+# an agentic trusted-tool-gating strategy for data/examples_300.jsonl.
+# Do not pass this file to scripts/evalgrid_run.py until an agentic/tool-use
+# adapter maps trusted_tool_gating to a real runnable benchmark strategy.
+benchmark_name: receiptinject_agentic_tool_policy_todo
+dataset_path: data/examples_300.jsonl
+provider: gemini
+model_name: gemini-3.1-flash-lite
+strategy: trusted_tool_gating
+expected_request_count: 300
+max_concurrency: 1
+sleep_between_requests: 8.0
+output_results_path: results/evalgrid_gemini_300_trusted_gating_results.csv
+raw_outputs_path: results/evalgrid_gemini_300_trusted_gating_raw_outputs.jsonl
+metadata_path: results/evalgrid_gemini_300_trusted_gating_metadata.json
+resume: true
+status: not_runnable_until_agentic_adapter_exists
