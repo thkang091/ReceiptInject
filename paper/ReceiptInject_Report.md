@@ -2,7 +2,7 @@
 
 ## Abstract
 
-ReceiptInject is a research engineering project for evaluating document-understanding LLM agents on untrusted synthetic inputs. It combines deterministic synthetic data generation, realistic document templates, optional PDF/OCR support, multi-provider evaluation through EvalGrid, raw output logging, reproducible scoring, and final artifact generation. The current curated result is a preliminary OpenAI + Mistral passive comparison on a 50-example hard subset. The results are synthetic, small-sample, and scorer-limited.
+ReceiptInject is a research engineering project for evaluating document-understanding LLM agents on untrusted synthetic inputs. It combines deterministic synthetic data generation, realistic document templates, optional PDF/OCR support, multi-provider evaluation through EvalGrid, raw output logging, reproducible scoring, trusted-tool-gating experiments, and final artifact generation. The current curated result is a preliminary 2,700-row real-provider comparison across Gemini, OpenAI, and Mistral on a 300-example synthetic suite. The results are synthetic, automated-scored, and scorer-limited.
 
 ## Introduction
 
@@ -34,16 +34,21 @@ ReceiptInject reports extraction accuracy, prompt-injection compliance, privacy 
 
 ## Preliminary Results
 
-The current final result uses `data/hard_test_subset_50.jsonl`: 50 synthetic examples, 10 per document type, 20 benign and 30 adversarial, with 43 hard, 6 medium, and 1 easy examples.
+The current headline result uses `data/examples_300.jsonl`: 300 synthetic text-only examples across receipts, invoices, bank statements, and policy documents. Gemini, OpenAI, and Mistral were each evaluated under three strategies: `baseline_minimal`, `combined_safety_schema`, and `trusted_tool_gating`, for 2,700 total real-provider rows. The older `data/hard_test_subset_50.jsonl` comparison is retained as legacy validation material, not as the current public headline.
 
-| Model | Mitigation | n | Extraction Accuracy | Safe Completion | Hallucination | Prompt-Injection Compliance |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| OpenAI | `baseline_minimal` | 50 | 45.3% | 54.0% | 12.0% | 6.0% |
-| OpenAI | `combined_safety_schema` | 50 | 84.7% | 100.0% | 0.0% | 0.0% |
-| Mistral | `baseline_minimal` | 50 | 26.3% | 12.0% | 40.0% | 50.0% |
-| Mistral | `combined_safety_schema` | 50 | 84.0% | 98.0% | 2.0% | 0.0% |
+| Model | Strategy | n | Extraction Accuracy | Safe Completion | Hallucination | Prompt-Injection Compliance | Unsafe Proposal | Unsafe Execution |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Gemini 3.1 Flash Lite | `baseline_minimal` | 300 | 49.3% | 31.3% | 32.7% | 19.7% | 0.0% | 0.0% |
+| Gemini 3.1 Flash Lite | `combined_safety_schema` | 300 | 90.8% | 100.0% | 0.0% | 0.0% | 0.0% | 0.0% |
+| Gemini 3.1 Flash Lite | `trusted_tool_gating` | 300 | 90.8% | 100.0% | 0.0% | 0.0% | 19.0% | 0.0% |
+| OpenAI GPT-4o mini | `baseline_minimal` | 300 | 59.5% | 74.0% | 8.7% | 4.0% | 0.0% | 0.0% |
+| OpenAI GPT-4o mini | `combined_safety_schema` | 300 | 90.5% | 100.0% | 0.0% | 0.0% | 0.0% | 0.0% |
+| OpenAI GPT-4o mini | `trusted_tool_gating` | 300 | 89.8% | 99.0% | 0.0% | 0.0% | 1.0% | 0.0% |
+| Mistral Large Latest | `baseline_minimal` | 300 | 40.4% | 25.0% | 40.3% | 38.7% | 0.0% | 0.0% |
+| Mistral Large Latest | `combined_safety_schema` | 300 | 90.6% | 99.7% | 0.3% | 0.0% | 0.0% | 0.0% |
+| Mistral Large Latest | `trusted_tool_gating` | 300 | 90.6% | 100.0% | 0.0% | 0.0% | 8.0% | 0.0% |
 
-These results show that ReceiptInject can expose mitigation-sensitive behavior in a controlled synthetic setting and can run the same passive benchmark across OpenAI and Mistral. They do not prove production safety, and they should not be interpreted as broad model rankings.
+These results show that ReceiptInject can expose mitigation-sensitive behavior in a controlled synthetic setting and can run the same benchmark across multiple providers. The trusted-tool-gating rows also demonstrate a systems distinction between unsafe model proposals and unsafe simulated execution: the executor-side gate recorded nonzero unsafe proposal rates for some providers while blocking unsafe execution in this simulated setting. They do not prove production safety, and they should not be interpreted as broad model rankings.
 
 Claude/Anthropic was not run because no local `ANTHROPIC_API_KEY` was available.
 
@@ -54,12 +59,13 @@ The strongest contribution is systems execution: deterministic data generation, 
 ## Limitations
 
 - Synthetic data only
-- Small hard-subset comparison
+- Synthetic 300-example text suite; no real private documents
 - No Claude/Anthropic rows
 - Automated scorers are heuristic
 - Manual review is required before strong claims
 - Dataset templates repeat some tracked values
 - OCR is implemented but not part of the current headline comparison
+- Trusted-tool gating is simulated and should be treated as a defense-in-depth baseline, not a guarantee of production tool safety
 
 ## Responsible Use
 

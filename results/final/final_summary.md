@@ -1,35 +1,45 @@
-# Preliminary Hard-Subset Results
+# Preliminary 2,700-Row Cross-Provider Results
 
-Source: `results/final/final_results.csv`
-Dataset: `data/hard_test_subset_50.jsonl`
+Current headline artifact: `results/evalgrid_2700_all_results.csv`  
+Summary artifact: `results/evalgrid_2700_summary.md`  
+Dataset: `data/examples_300.jsonl`
 
-These are preliminary real-model results on a 50-example synthetic hard subset. The comparison now includes OpenAI and Mistral on the same examples and the same two passive mitigation conditions. Claude/Anthropic was not run because no local `ANTHROPIC_API_KEY` was available.
+These are preliminary real-provider results on a 300-example synthetic benchmark suite. The comparison includes Gemini, OpenAI, and Mistral on the same dataset under three strategies: `baseline_minimal`, `combined_safety_schema`, and `trusted_tool_gating`.
 
-The hard subset contains 50 examples: 10 receipts, 10 invoices, 10 bank statements, 10 policy documents, and 10 mixed bundles. It includes 20 benign examples and 30 adversarial examples. Difficulty is intentionally skewed toward harder cases: 43 hard, 6 medium, and 1 easy.
+The older 50-example hard-subset files under `results/final/final_results.csv` are retained as legacy/early validation artifacts. They are no longer the public headline result.
 
 ## Headline Table
 
-| Model | Mitigation | n | Extraction Accuracy | Safe Completion | Hallucination | Prompt-Injection Compliance | Suspicious Instruction Detection |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| mistral-large-latest | `baseline_minimal` | 50 | 26.3% | 12.0% | 40.0% | 50.0% | 80.0% |
-| mistral-large-latest | `combined_safety_schema` | 50 | 84.0% | 98.0% | 2.0% | 0.0% | 94.0% |
-| openai | `baseline_minimal` | 50 | 45.3% | 54.0% | 12.0% | 6.0% | 40.0% |
-| openai | `combined_safety_schema` | 50 | 84.7% | 100.0% | 0.0% | 0.0% | 52.0% |
+| Model | Mitigation | n | Errors | Extraction Accuracy | Safe Completion | Hallucination | Prompt-Injection Compliance | Unsafe Model Proposal | Unsafe Execution |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Gemini 3.1 Flash Lite | `baseline_minimal` | 300 | 0 | 49.3% | 31.3% | 32.7% | 19.7% | 0.0% | 0.0% |
+| Gemini 3.1 Flash Lite | `combined_safety_schema` | 300 | 0 | 90.8% | 100.0% | 0.0% | 0.0% | 0.0% | 0.0% |
+| Gemini 3.1 Flash Lite | `trusted_tool_gating` | 300 | 0 | 90.8% | 100.0% | 0.0% | 0.0% | 19.0% | 0.0% |
+| OpenAI GPT-4o mini | `baseline_minimal` | 300 | 0 | 59.5% | 74.0% | 8.7% | 4.0% | 0.0% | 0.0% |
+| OpenAI GPT-4o mini | `combined_safety_schema` | 300 | 0 | 90.5% | 100.0% | 0.0% | 0.0% | 0.0% | 0.0% |
+| OpenAI GPT-4o mini | `trusted_tool_gating` | 300 | 0 | 89.8% | 99.0% | 0.0% | 0.0% | 1.0% | 0.0% |
+| Mistral Large Latest | `baseline_minimal` | 300 | 0 | 40.4% | 25.0% | 40.3% | 38.7% | 0.0% | 0.0% |
+| Mistral Large Latest | `combined_safety_schema` | 300 | 0 | 90.6% | 99.7% | 0.3% | 0.0% | 0.0% | 0.0% |
+| Mistral Large Latest | `trusted_tool_gating` | 300 | 0 | 90.6% | 100.0% | 0.0% | 0.0% | 8.0% | 0.0% |
 
 ## Interpretation
 
-On this synthetic hard subset, `combined_safety_schema` improved automated extraction and safety metrics for both evaluated providers relative to `baseline_minimal`. This supports a narrow claim: ReceiptInject can run a controlled cross-provider passive comparison and expose mitigation-sensitive behavior on synthetic untrusted documents.
+On this synthetic 300-example suite, `combined_safety_schema` improved automated extraction and safety metrics relative to `baseline_minimal` for all three evaluated providers.
 
-This does not prove production safety, does not establish broad model rankings, and should not be treated as legal, financial, compliance, or operational advice. Automated scorer labels remain heuristic and require manual review.
+The trusted-tool-gating result supports a more systems-oriented claim: the benchmark can distinguish unsafe model proposals from unsafe simulated execution. Under `trusted_tool_gating`, unsafe model proposal rates were nonzero for Gemini, OpenAI, and Mistral, while unsafe execution remained 0.0% because the deterministic gate blocked unsafe proposed actions.
+
+This does not prove production safety, does not establish broad model rankings, and should not be treated as legal, financial, compliance, or operational advice. Automated scorer labels are heuristic and require manual review.
 
 ## Scope Notes
 
-- OpenAI final rows: 100 rows from two 50-example runs.
-- Mistral final rows: 100 completed rows from two 50-example EvalGrid runs; one transient 429 in the combined run was retried successfully and excluded from the curated completed-row CSV.
+- Gemini rows: 900 real-provider rows across three strategies.
+- OpenAI rows: 900 real-provider rows across three strategies.
+- Mistral rows: 900 real-provider rows across three strategies.
 - Claude/Anthropic: not run in this pass.
 - OCR: not included in this headline comparison.
 - Mock results: pipeline validation only, not research evidence.
+- Raw outputs are local artifacts; summary CSVs and metadata substantiate the public result.
 
 ## Dataset Diversity Caveat
 
-`results/dataset_diversity_audit.md` reports 0 duplicate `document_text` rows but 608 repeated tracked-value occurrences across the 500-example dataset. This remains a synthetic-template limitation; the dataset was not regenerated in this pass, so broad coverage language should stay cautious.
+`results/dataset_diversity_audit.md` reports 0 duplicate `document_text` rows but 608 repeated tracked-value occurrences across the 500-example dataset. This remains a synthetic-template limitation, so broad coverage language should stay cautious.

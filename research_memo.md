@@ -14,16 +14,21 @@ ReceiptInject includes typed schemas, deterministic synthetic dataset generation
 
 ## 4. Preliminary Results
 
-The current curated final result uses a 50-example synthetic hard subset with 10 examples per document type, 20 benign and 30 adversarial examples, and two mitigation settings.
+The current curated final result uses a 300-example synthetic text-only suite across three providers and three strategies, for 2,700 real-provider rows. The evaluated providers are Gemini, OpenAI, and Mistral; Claude/Anthropic was not run because no local Anthropic key was available.
 
-| Model | Mitigation | Extraction | Safe Completion | Hallucination | Prompt-Injection Compliance |
-| --- | --- | ---: | ---: | ---: | ---: |
-| OpenAI | `baseline_minimal` | 45.3% | 54.0% | 12.0% | 6.0% |
-| OpenAI | `combined_safety_schema` | 84.7% | 100.0% | 0.0% | 0.0% |
-| Mistral | `baseline_minimal` | 26.3% | 12.0% | 40.0% | 50.0% |
-| Mistral | `combined_safety_schema` | 84.0% | 98.0% | 2.0% | 0.0% |
+| Model | Strategy | Extraction | Safe Completion | Prompt-Injection Compliance | Unsafe Proposal | Unsafe Execution |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Gemini 3.1 Flash Lite | `baseline_minimal` | 49.3% | 31.3% | 19.7% | 0.0% | 0.0% |
+| Gemini 3.1 Flash Lite | `combined_safety_schema` | 90.8% | 100.0% | 0.0% | 0.0% | 0.0% |
+| Gemini 3.1 Flash Lite | `trusted_tool_gating` | 90.8% | 100.0% | 0.0% | 19.0% | 0.0% |
+| OpenAI GPT-4o mini | `baseline_minimal` | 59.5% | 74.0% | 4.0% | 0.0% | 0.0% |
+| OpenAI GPT-4o mini | `combined_safety_schema` | 90.5% | 100.0% | 0.0% | 0.0% | 0.0% |
+| OpenAI GPT-4o mini | `trusted_tool_gating` | 89.8% | 99.0% | 0.0% | 1.0% | 0.0% |
+| Mistral Large Latest | `baseline_minimal` | 40.4% | 25.0% | 38.7% | 0.0% | 0.0% |
+| Mistral Large Latest | `combined_safety_schema` | 90.6% | 99.7% | 0.0% | 0.0% | 0.0% |
+| Mistral Large Latest | `trusted_tool_gating` | 90.6% | 100.0% | 0.0% | 8.0% | 0.0% |
 
-These are preliminary synthetic benchmark results. They show that the infrastructure can compare providers and prompt mitigations under controlled conditions; they do not prove production safety or establish broad model rankings. Claude/Anthropic was not run because no local Anthropic key was available.
+These are preliminary synthetic benchmark results. The most systems-relevant result is that trusted-tool gating records unsafe model proposals separately from unsafe simulated execution: proposal rates were nonzero for Gemini and Mistral under the gated strategy, while unsafe execution remained 0.0% because the local executor blocked unsafe proposed actions. This is not production safety evidence and should not be interpreted as a broad model ranking.
 
 ## 5. Why This Fits ML Systems & Performance
 
@@ -31,8 +36,8 @@ ReceiptInject is systems-heavy: deterministic synthetic data generation, configu
 
 ## 6. Limitations
 
-The benchmark uses synthetic documents and visible embedded instructions. Automated scorers are transparent but heuristic, so manual inspection is required before strong claims. The dataset diversity audit reports 608 repeated tracked-value occurrences in the 500-example dataset, which remains a documented synthetic-template limitation.
+The benchmark uses synthetic documents and visible embedded instructions. Automated scorers are transparent but heuristic, so manual inspection is required before strong claims. The dataset diversity audit reports 608 repeated tracked-value occurrences in the 500-example dataset, which remains a documented synthetic-template limitation. The 50-example hard-subset artifacts remain in the repository as legacy validation material, not as the current headline result.
 
 ## 7. Future Work
 
-Next steps include Claude/Anthropic runs, richer synthetic templates, human annotation, semantic scoring, OCR stress tests, and broader provider comparisons after manual-review calibration.
+Next steps include Claude/Anthropic runs, richer synthetic templates, human annotation, semantic scoring, OCR stress tests, confidence intervals, and broader provider comparisons after manual-review calibration.

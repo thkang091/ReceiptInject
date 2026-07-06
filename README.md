@@ -74,15 +74,15 @@ Final summaries + validation + failure cases
 
 ## Key Artifacts
 
-- Final selected results: `results/final/final_results.csv`
+- Current headline results: `results/evalgrid_2700_all_results.csv`
+- Current headline summary: `results/evalgrid_2700_summary.md`
 - Final summary: `results/final/final_summary.md`
 - Final validation: `results/final/final_validation.md`
 - Claim audit: `results/final/claim_audit.md`
-- Mistral EvalGrid hard-run CSV: `results/final/evalgrid_mistral_hard_results.csv`
+- Legacy hard-subset results: `results/final/final_results.csv`
+- Legacy Mistral EvalGrid hard-run CSV: `results/final/evalgrid_mistral_hard_results.csv`
 - 300-example cross-provider combined CSV: `results/evalgrid_300_all_results.csv`
 - 300-example cross-provider summary: `results/evalgrid_300_summary.md`
-- 2,700-row cross-provider CSV: `results/evalgrid_2700_all_results.csv`
-- 2,700-row cross-provider summary: `results/evalgrid_2700_summary.md`
 - Dataset diversity audit: `results/dataset_diversity_audit.md`
 - Technical report: `docs/ReceiptInject_Report.md`
 - Paper-style report: `paper/ReceiptInject_Report.md`
@@ -173,7 +173,7 @@ python scripts/run_eval.py --config configs/gemini_smoke.yaml --fresh
 
 The smoke test uses 1 example and writes to `results/gemini_smoke_*`. It does not update `results/final/` and should not be reported as benchmark evidence.
 
-Current local note: a Gemini smoke attempt reached the Gemini API but returned quota/resource-exhausted errors, so no successful Gemini outputs are claimed or committed.
+Historical note: an earlier Gemini smoke attempt reached the Gemini API but returned quota/resource-exhausted errors. The current headline result now includes successful Gemini 300-example baseline, safety/schema, and trusted-gating runs; failed smoke artifacts are not part of the final evidence.
 
 Generate the optional 300-example scaled suite:
 
@@ -182,11 +182,11 @@ python scripts/generate_300_suite.py --output data/examples_300.jsonl --seed 42
 python scripts/validate_dataset.py --data data/examples_300.jsonl
 ```
 
-## Gemini Free-Tier Run Plan
+## Gemini Free-Tier Re-Run Plan
 
-Gemini provider support is configured for `gemini-3.1-flash-lite`. The current free-tier quota table makes this the useful low-cost text model for this project, but the daily request cap matters: a 300-example suite across three strategies would require roughly 900 requests, which exceeds a 500-request daily quota. Do not run all strategies in one day on the free tier.
+Gemini provider support is configured for `gemini-3.1-flash-lite`. If you are re-running the 300-example suite on a free-tier key, split runs by strategy because provider quota and rate-limit behavior can change. Do not treat a high-error quota-limited run as benchmark evidence.
 
-Run one strategy per day, with the smoke test first:
+Run one strategy at a time, with the smoke test first:
 
 ```bash
 python scripts/evalgrid_run.py --config configs/evalgrid_receiptinject_gemini.yaml --fresh --clear-cache
@@ -194,7 +194,7 @@ python scripts/evalgrid_run.py --config configs/evalgrid_gemini_300_baseline.yam
 python scripts/evalgrid_run.py --config configs/evalgrid_gemini_300_safety_schema.yaml
 ```
 
-These configs use `max_concurrency: 1`, `sleep_between_requests: 8.0`, `resume: true`, and separate output paths. If Gemini returns `429` quota/resource-exhausted errors, wait for quota reset and rerun the same config with resume enabled.
+These configs use conservative pacing and separate output paths. If Gemini returns `429` quota/resource-exhausted errors, wait for quota reset and rerun the same config with resume enabled.
 
 Gemini trusted-gating has been run for 300 examples. Future Gemini runs should still be split by strategy because of free-tier daily request limits.
 
