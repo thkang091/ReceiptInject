@@ -128,7 +128,7 @@ The combined artifacts are `results/evalgrid_2700_all_results.csv` and `results/
 - Synthetic data only
 - Preliminary 300-example synthetic comparison
 - No Claude/Anthropic rows
-- Full trusted-gating 300-example results are pending
+- Trusted-gating results are simulated executor-side results, not production tool-safety evidence
 - Automated scorers are heuristic
 - Manual review is still needed
 - OCR is implemented but excluded from this headline comparison
